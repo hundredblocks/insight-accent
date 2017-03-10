@@ -1,7 +1,7 @@
 import librosa
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import itertools
 from IPython.display import Audio, display
 from utils import read_audio_spectrum
@@ -36,7 +36,7 @@ def train_output(content, style, n_fft=N_FFT, n_filters=N_FILTERS, filter_width=
     kernel = np.random.randn(1, filter_width, n_channels, n_filters) * std
 
     g = tf.Graph()
-    with g.as_default(), g.device('/cpu:0'), tf.Session() as sess:
+    with g.as_default(), g.device('/gpu:0'), tf.Session() as sess:
         # data shape is "[batch, in_height, in_width, in_channels]",
         x = tf.placeholder('float32', [1, 1, n_samples, n_channels], name="x")
 
@@ -128,20 +128,20 @@ def train(n_samples, n_channels, kernel, content_features, style_gram):
         return result
 
 
-def inspect_audio(output_filename, content_spectral, style_spectral, result_spectral):
-    display(Audio(output_filename))
+#def inspect_audio(output_filename, content_spectral, style_spectral, result_spectral):
+#    display(Audio(output_filename))
 
-    plt.figure(figsize=(15, 5))
-    plt.subplot(1, 3, 1)
-    plt.title('Content')
-    plt.imshow(content_spectral[:400, :])
-    plt.subplot(1, 3, 2)
-    plt.title('Style')
-    plt.imshow(style_spectral[:400, :])
-    plt.subplot(1, 3, 3)
-    plt.title('Result')
-    plt.imshow(result_spectral[:400, :])
-    plt.show()
+#    plt.figure(figsize=(15, 5))
+#    plt.subplot(1, 3, 1)
+#    plt.title('Content')
+#    plt.imshow(content_spectral[:400, :])
+#    plt.subplot(1, 3, 2)
+#    plt.title('Style')
+#    plt.imshow(style_spectral[:400, :])
+#    plt.subplot(1, 3, 3)
+#    plt.title('Result')
+#    plt.imshow(result_spectral[:400, :])
+#   plt.show()
 
 
 def hyperparameter_grid_search(content, style, fft_values, filter_size_values, n_filter_values):
@@ -151,4 +151,8 @@ def hyperparameter_grid_search(content, style, fft_values, filter_size_values, n
 
 
 if __name__ == '__main__':
-    train_output(content="op_cancelled.wav", style="wake_up.wav", reduce_factor=1)
+    #train_output(content="op_cancelled.wav", style="wake_up.wav", reduce_factor=1)
+    fft_values = [512, 1024, 2048]
+    filter_size_values = [1,2,3,4,5,10,100]
+    n_filter_values = [4096]
+    hyperparameter_grid_search("op_cancelled.wav", "wake_up.wav", fft_values, filter_size_values, n_filter_values)
