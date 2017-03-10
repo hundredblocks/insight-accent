@@ -26,11 +26,7 @@ def slice(infile, outfilename, start_ms, end_ms):
 # Fourier phases are ignored
 def read_audio_spectrum(x, fs, n_fft=N_FFT, reduce_factor=1):
     x = x[0:len(x) / reduce_factor]
-    S = librosa.stft(x, n_fft)
+    S = librosa.stft(x, n_fft, hop_length=n_fft/4)
     # p = np.angle(S)
-
-    # S = np.log1p(np.abs(S[:, :430]))
-
-    # S = np.log1p(np.abs(S[:, :130]))
-    S = np.log1p(np.abs(S[:, :120]))
+    S = np.log1p(np.abs(S))
     return S, fs

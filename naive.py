@@ -1,7 +1,7 @@
 import librosa
 import numpy as np
 import tensorflow as tf
-#import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import itertools
 from IPython.display import Audio, display
 from utils import read_audio_spectrum
@@ -22,11 +22,15 @@ def train_output(content, style, n_fft=N_FFT, n_filters=N_FILTERS, filter_width=
     a_content, fs = read_audio_spectrum(x_c, fs_c, n_fft=n_fft, reduce_factor=reduce_factor)
     a_style, fs = read_audio_spectrum(x_s, fs_s, n_fft=n_fft, reduce_factor=reduce_factor)
 
-    n_samples = a_content.shape[1]
-    n_channels = a_content.shape[0]
+    # TODO make sure style is long enough
+    # n_samples = a_content.shape[1]
+    # n_channels = a_content.shape[0]
+    n_samples = min(a_content.shape[1], a_style.shape[1])
+    n_channels = min(a_content.shape[0], a_style.shape[0])
 
     # Truncate style to content frequency and time window (debatable)
     a_style = a_style[:n_channels, :n_samples]
+    a_content = a_content[:n_channels, :n_samples]
 
     a_content_tf = np.ascontiguousarray(a_content.T[None, None, :, :])
     a_style_tf = np.ascontiguousarray(a_style.T[None, None, :, :])
@@ -128,7 +132,7 @@ def train(n_samples, n_channels, kernel, content_features, style_gram):
         return result
 
 
-#def inspect_audio(output_filename, content_spectral, style_spectral, result_spectral):
+# def inspect_audio(output_filename, content_spectral, style_spectral, result_spectral):
 #    display(Audio(output_filename))
 
 #    plt.figure(figsize=(15, 5))
@@ -151,8 +155,10 @@ def hyperparameter_grid_search(content, style, fft_values, filter_size_values, n
 
 
 if __name__ == '__main__':
-    #train_output(content="op_cancelled.wav", style="wake_up.wav", reduce_factor=1)
-    fft_values = [512, 1024, 2048]
-    filter_size_values = [1,2,3,4,5,10,100]
+    # train_output(content="op_cancelled.wav", style="wake_up.wav", reduce_factor=1)
+    # fft_values = [512, 1024, 2048]
+    fft_values = [2048]
+    # filter_size_values = [1, 2, 3, 4, 5, 10, 100]
+    filter_size_values = [3]
     n_filter_values = [4096]
     hyperparameter_grid_search("op_cancelled.wav", "wake_up.wav", fft_values, filter_size_values, n_filter_values)
