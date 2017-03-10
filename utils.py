@@ -24,11 +24,13 @@ def slice(infile, outfilename, start_ms, end_ms):
 
 # Reads wav file and produces spectrum
 # Fourier phases are ignored
-def read_audio_spectrum(x, fs, reduce_factor=1):
+def read_audio_spectrum(x, fs, n_fft=N_FFT, reduce_factor=1):
     x = x[0:len(x) / reduce_factor]
-    S = librosa.stft(x, N_FFT)
+    S = librosa.stft(x, n_fft)
     # p = np.angle(S)
 
     # S = np.log1p(np.abs(S[:, :430]))
-    S = np.log1p(np.abs(S[:, :130]))
+
+    # S = np.log1p(np.abs(S[:, :130]))
+    S = np.log1p(np.abs(S[:, :120]))
     return S, fs

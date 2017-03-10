@@ -1,13 +1,17 @@
 import librosa
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
+import itertools
 from IPython.display import Audio, display
 from utils import read_audio_spectrum
 
 N_FFT = 2048
+N_FILTERS = 2048
+FILTER_WIDTH = 11
 
 
-def train_output(content, style, reduce_factor=1):
+def train_output(content, style, n_fft=N_FFT, n_filters=N_FILTERS, filter_width=FILTER_WIDTH, reduce_factor=1):
     content_filename = "inputs/" + content
     content_no_extention = content.split(".")[0]
     style_no_extention = style.split(".")[0]
@@ -15,8 +19,8 @@ def train_output(content, style, reduce_factor=1):
 
     x_c, fs_c = librosa.load(content_filename)
     x_s, fs_s = librosa.load(style_filename)
-    a_content, fs = read_audio_spectrum(x_c, fs_c, reduce_factor=reduce_factor)
-    a_style, fs = read_audio_spectrum(x_s, fs_s, reduce_factor=reduce_factor)
+    a_content, fs = read_audio_spectrum(x_c, fs_c, n_fft=n_fft, reduce_factor=reduce_factor)
+    a_style, fs = read_audio_spectrum(x_s, fs_s, n_fft=n_fft, reduce_factor=reduce_factor)
 
     n_samples = a_content.shape[1]
     n_channels = a_content.shape[0]
@@ -24,13 +28,10 @@ def train_output(content, style, reduce_factor=1):
     # Truncate style to content frequency and time window (debatable)
     a_style = a_style[:n_channels, :n_samples]
 
-    n_filters = 4096
-
     a_content_tf = np.ascontiguousarray(a_content.T[None, None, :, :])
     a_style_tf = np.ascontiguousarray(a_style.T[None, None, :, :])
 
     # filter shape is "[filter_height, filter_width, in_channels, out_channels]"
-    filter_width = 11
     std = np.sqrt(2) * np.sqrt(2.0 / ((n_channels + n_filters) * filter_width))
     kernel = np.random.randn(1, filter_width, n_channels, n_filters) * std
 
@@ -65,25 +66,17 @@ def train_output(content, style, reduce_factor=1):
     for i in range(500):
         S = a * np.exp(1j * p)
         x = librosa.istft(S)
-        p = np.angle(librosa.stft(x, N_FFT))
+        p = np.angle(librosa.stft(x, n_fft))
 
-    output_filename = 'outputs/' + content_no_extention + '_' + style_no_extention + '.wav'
+    out_name = '%s_to_%s_%s_fft_%s_width_%s_n.wav' % (
+        content_no_extention, style_no_extention, n_fft, filter_width, n_filters)
+
+    output_filename = 'outputs/' + out_name
+
     librosa.output.write_wav(output_filename, x, fs)
 
     print output_filename
     display(Audio(output_filename))
-
-    # plt.figure(figsize=(15, 5))
-    # plt.subplot(1, 3, 1)
-    # plt.title('Content')
-    # plt.imshow(a_content[:400, :])
-    # plt.subplot(1, 3, 2)
-    # plt.title('Style')
-    # plt.imshow(a_style[:400, :])
-    # plt.subplot(1, 3, 3)
-    # plt.title('Result')
-    # plt.imshow(a[:400, :])
-    # plt.show()
 
 
 def train(n_samples, n_channels, kernel, content_features, style_gram):
@@ -93,8 +86,7 @@ def train(n_samples, n_channels, kernel, content_features, style_gram):
 
     result = None
     with tf.Graph().as_default():
-        # Build graph with variable input
-        #     x = tf.Variable(np.zeros([1,1,N_SAMPLES,N_CHANNELS], dtype=np.float32), name="x")
+        # Initial soundwave
         x = tf.Variable(np.random.randn(1, 1, n_samples, n_channels).astype(np.float32) * 1e-3, name="x")
 
         kernel_tf = tf.constant(kernel, name="kernel", dtype='float32')
@@ -136,5 +128,27 @@ def train(n_samples, n_channels, kernel, content_features, style_gram):
         return result
 
 
+def inspect_audio(output_filename, content_spectral, style_spectral, result_spectral):
+    display(Audio(output_filename))
+
+    plt.figure(figsize=(15, 5))
+    plt.subplot(1, 3, 1)
+    plt.title('Content')
+    plt.imshow(content_spectral[:400, :])
+    plt.subplot(1, 3, 2)
+    plt.title('Style')
+    plt.imshow(style_spectral[:400, :])
+    plt.subplot(1, 3, 3)
+    plt.title('Result')
+    plt.imshow(result_spectral[:400, :])
+    plt.show()
+
+
+def hyperparameter_grid_search(content, style, fft_values, filter_size_values, n_filter_values):
+    params = itertools.product(fft_values, filter_size_values, n_filter_values)
+    for config in params:
+        train_output(content, style, n_fft=config[0], filter_width=config[1], n_filters=config[2])
+
+
 if __name__ == '__main__':
-    train_output(style="op_cancelled.wav", content="wake_up.wav", reduce_factor=1)
+    train_output(content="op_cancelled.wav", style="wake_up.wav", reduce_factor=1)
