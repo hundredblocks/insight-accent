@@ -1,12 +1,10 @@
 import os
 from os import listdir
 from os.path import isfile, join
+from shutil import copyfile
 
 import librosa
-import scipy
 
-import matplotlib.mlab
-import scipy.io.wavfile
 from bs4 import BeautifulSoup
 import urllib
 import tarfile
@@ -53,12 +51,10 @@ def inspect():
                 try:
                     idx = data.index('Pronunciation dialect')
                 except ValueError:
-                    print data
                     break
                 try:
                     idx2 = data.index('Gender')
                 except ValueError:
-                    print data
                     break
                 j += 1
                 fp.seek(idx)
@@ -83,14 +79,100 @@ def inspect():
     print(dialect_tup)
 
 
-# def organize():
-#     for root, dirs, files in os.walk('raw_sound/'):
-#         dirnames = [os.path.basename(d) for d in dirs]
-#         if len(dirnames) == 2:
-#             if 'wav' in dirnames and 'etc' in dirnames:
-#                 continue
-#             else:
-#                 print(dirnames)
+def organize():
+    for root, dirs, files in os.walk('raw_sound/'):
+        dirnames = [os.path.basename(d) for d in dirs]
+        if len(dirnames) == 2:
+            if 'wav' in dirnames and 'etc' in dirnames:
+                move_subfolder(root, dirs)
+            else:
+                continue
+
+
+def move_subfolder(root, dirs):
+    readme_files, wav_files = get_dir_files(root, dirs)
+    if readme_files == "" or wav_files == "":
+        return
+
+    readme = [f for f in readme_files if f.startswith('README')]
+    if len(readme) != 1:
+        return
+
+    readme = readme[0]
+    dialect, gender = get_dialect_gender(root, readme)
+
+    if dialect == "" or gender == "":
+        return
+    target_path = get_target_folder(dialect, gender)
+    if target_path == "":
+        return
+    wavs = [f for f in wav_files if f.endswith('.wav')]
+
+    for wav in wavs:
+        copyfile(os.path.join(root, 'wav', wav), os.path.join(target_path, wav))
+
+
+def get_dir_files(root, dirs):
+    readme = [d for d in dirs if d.startswith('etc')]
+    wav = [d for d in dirs if d.startswith('wav')]
+    if len(readme) != 1 or len(wav) != 1:
+        return "", ""
+
+    readme_dir = readme[0]
+    readme_dir = os.path.join(root, readme_dir)
+    readme_files = [f for f in listdir(readme_dir) if isfile(join(readme_dir, f))]
+
+    wav_dir = wav[0]
+    wav_dir = os.path.join(root, wav_dir)
+    wav_files = [f for f in listdir(wav_dir) if isfile(join(wav_dir, f))]
+    return readme_files, wav_files
+
+
+def get_target_folder(dialect, gender, base_output_path="sorted_sound"):
+    dialect_path = ""
+    gender_path = ""
+    if dialect.find("american") != -1:
+        dialect_path = "american"
+    elif dialect.find("british") != -1:
+        dialect_path = "british"
+
+    if gender.find("female") != -1:
+        gender_path = "female"
+    elif gender.find("male") != -1:
+        gender_path = "male"
+
+    if dialect_path != "" and gender_path != "":
+        return base_output_path + "/" + dialect_path + "/" + gender_path
+    return ""
+
+
+def get_dialect_gender(root, f):
+    with open(os.path.join(root, 'etc', f)) as fp:
+        data = fp.read()
+        try:
+            idx = data.index('Pronunciation dialect')
+        except ValueError:
+            return "", ""
+        try:
+            idx2 = data.index('Gender')
+        except ValueError:
+            return "", ""
+        fp.seek(idx)
+        dialect_line = fp.readline()
+        dialect_field = dialect_line.split(':')[1] if len(dialect_line.split(':')) > 0 else ''
+        dialect_field = dialect_field.strip('\n')
+        dialect_field = dialect_field.strip(' ')
+        dialect_field = dialect_field.lower()
+
+        fp.seek(idx2)
+        gender_line = fp.readline()
+        gender_field = gender_line.split(':')[1] if len(gender_line.split(':')) > 0 else ''
+        gender_field = gender_field.strip('\n')
+        gender_field = gender_field.strip(' ')
+        gender_field = gender_field.lower()
+
+        return dialect_field, gender_field
+
 
 def cut():
     # utils.slice('organized_sound/wav/british/bo156.wav', 'test.wav', 0, 3000)
@@ -159,6 +241,6 @@ def to_one_hot(Y):
 if __name__ == '__main__':
     # fetch_data()
     # inspect()
-    # organize()
+    organize()
     # cut()
-    preprocess('organized_sound/wav/')
+    # preprocess('organized_sound/wav/')

@@ -28,8 +28,9 @@ def train_conv_net(max_iter, batch_size):
             for i in range(len(training_set) / batch_size):
                 batch = perms[i * batch_size:(i + 1) * batch_size, :]
                 batch_x = [a[0] for a in batch]
-                inner_x = [np.copy(batch_x[0])]
-                batch_x = [inner_x]
+                # print(batch_x)
+                # inner_x = [np.copy(batch_x)]
+                batch_x = [[a] for a in batch_x]
                 batch_y = [a[1] for a in batch]
                 # batch_y = to_one_hot(batch_y_nat)
                 sess.run(model.train_step, feed_dict={model.x: batch_x, model.y_: batch_y, model.keep_prob: 0.5})
@@ -54,4 +55,4 @@ def train_conv_net(max_iter, batch_size):
 
 
 if __name__ == '__main__':
-    train_conv_net(50000, 5)
+    train_conv_net(5000, 5)
