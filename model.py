@@ -8,7 +8,7 @@ class SoundCNN():
     def __init__(self, num_classes):
         self.x = tf.placeholder(tf.float32, [None, 1, 130, 1025])
         self.y_ = tf.placeholder(tf.float32, [None, num_classes])
-
+        self.is_train = tf.Variable(True, name='training')
         self.W_conv1 = weight_variable([1, 7, 1025, 32])
 
         # self.b_conv1 = bias_variable([32])
@@ -17,7 +17,7 @@ class SoundCNN():
         conv1 = conv2d(self.x, self.W_conv1)
         self.batch_norm1 = tf.contrib.layers.batch_norm(conv1,
                                                         center=True, scale=True,
-                                                        is_training=True,
+                                                        is_training=self.is_train,
                                                         )
         self.h_conv1 = tf.nn.relu(self.batch_norm1)
         self.h_pool1 = max_pool_2x2(self.h_conv1)
@@ -30,7 +30,7 @@ class SoundCNN():
         conv2 = conv2d(self.h_pool1, self.W_conv2)
         self.batch_norm2 = tf.contrib.layers.batch_norm(conv2,
                                                         center=True, scale=True,
-                                                        is_training=True)
+                                                        is_training=self.is_train)
         self.h_conv2 = tf.nn.relu(self.batch_norm2)
 
         self.h_pool2 = max_pool_2x2(self.h_conv2)
@@ -43,7 +43,7 @@ class SoundCNN():
         conv3 = tf.matmul(self.h_pool2_flat, self.W_fc1)
         self.batch_norm3 = tf.contrib.layers.batch_norm(conv3,
                                                         center=True, scale=True,
-                                                        is_training=True)
+                                                        is_training=self.is_train)
 
         self.h_fc1 = tf.nn.relu(self.batch_norm3)
 
