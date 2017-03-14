@@ -1,10 +1,11 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from data_fetch import preprocess
+from data_fetch import preprocess, preprocess_and_load
 from model import SoundCNN
 
-num_classes, trainX, trainYa, valX, valY, testX, testY = preprocess('organized_sound/wav/')
+# num_classes, trainX, trainYa, valX, valY, testX, testY = preprocess('organized_sound/wav/')
+num_classes, trainX, trainYa, valX, valY, testX, testY = preprocess_and_load('sorted_sound/', data_limit=50, used_genders=['male'])
 
 n = [np.copy(valX[0])]
 valX = [n]

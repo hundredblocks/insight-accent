@@ -205,6 +205,89 @@ def cut_all():
                              second_cut_size=3, second_step_size=1)
 
 
+# used_genders is an array
+def preprocess_and_load(path, data_limit=None, used_genders=None):
+    path_dict = get_path_dict(path, used_genders=used_genders)
+
+    truncated_path_dict = get_equal_classes(path_dict, data_limit)
+    new_classes_length = [[k, len(v)] for k, v in truncated_path_dict.items()]
+    print("classes and number of examples %s" %new_classes_length)
+    return get_examples_from_paths(truncated_path_dict)
+
+
+def get_examples_from_paths(path_dict):
+    data_list = []
+    label_list = []
+    classes = path_dict.keys()
+    num_classes = len(classes)
+    for cls, paths in path_dict.items():
+        class_int = classes.index(cls)
+        for audio_file in paths:
+            x, fs = librosa.load(audio_file)
+            S, fs = utils.read_audio_spectrum(x, fs)
+            formatted_vec = np.ascontiguousarray(S.T[None, None, :, :])
+            data_list.append(formatted_vec)
+
+        label_list.append(np.ones([len(paths), 1]) * class_int)
+
+    Ys = np.concatenate(label_list)
+
+    specX = np.zeros([len(data_list), 130, 1025])
+    for i, x in enumerate(data_list):
+        specX[i] = x
+
+    data_and_label = [[specX[i, :, :], Ys[i]] for i in range(len(data_list))]
+    split1 = specX.shape[0] - specX.shape[0] / 5
+    split2 = (specX.shape[0] - split1) / 2
+
+    shuffled_data = np.random.permutation(data_and_label)
+    shuffled_x = [a[0] for a in shuffled_data]
+    shuffled_y = [a[1] for a in shuffled_data]
+    trainX, otherX = np.split(shuffled_x, [split1])
+    trainYa, otherY = np.split(shuffled_y, [split1])
+    valX, testX = np.split(otherX, [split2])
+    valYa, testYa = np.split(otherY, [split2])
+
+    trainY = to_one_hot(trainYa)
+    testY = to_one_hot(testYa)
+    valY = to_one_hot(valYa)
+    return num_classes, trainX, trainY, valX, valY, testX, testY
+
+
+def get_equal_classes(path_dict, data_limit=None):
+    classes_length = [[k, len(v)] for k, v in path_dict.items()]
+    # here we want the same out of each class
+    to_use = min([c[1] for c in classes_length])
+    if data_limit is not None:
+        to_use = min(to_use, data_limit)
+    truncated_path_dict = {k: np.random.choice(v, to_use, replace=False) for k, v in path_dict.items()}
+    new_classes_length = [[k, len(v)] for k, v in truncated_path_dict.items()]
+    return truncated_path_dict
+
+
+def get_path_dict(path, used_genders):
+    accent = [f for f in listdir(path) if not isfile(join(path, f))]
+    path_dict = {}
+    if used_genders is None:
+        used_genders = ['male', 'female']
+    for acc in accent:
+        full_path = os.path.join(path, acc)
+        gender = [f for f in listdir(full_path) if not isfile(join(full_path, f))]
+        gender = [g for g in gender if g in used_genders]
+        for gen in gender:
+            full_gender_path = os.path.join(full_path, gen)
+            cut_subfolders = [f for f in listdir(full_gender_path) if f.endswith('cut')]
+            if len(cut_subfolders) != 1:
+                raise ValueError("One cut folder required: %s" % cut_subfolders)
+            cut_subfolder = cut_subfolders[0]
+            cut_path = os.path.join(full_gender_path, cut_subfolder)
+            onlyfiles = [os.path.join(cut_path, f) for f in listdir(cut_path) if
+                         isfile(join(cut_path, f)) and not f.startswith('.DS')]
+            path_dict["%s_%s" % (acc, gen)] = onlyfiles
+
+    return path_dict
+
+
 def preprocess(sound_path):
     folders = [f for f in listdir(sound_path) if not isfile(join(sound_path, f))]
     num_classes = len(folders)
