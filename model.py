@@ -8,7 +8,8 @@ class SoundCNN():
     def __init__(self, num_classes):
         self.x = tf.placeholder(tf.float32, [None, 1, 130, 1025])
         self.y_ = tf.placeholder(tf.float32, [None, num_classes])
-        self.is_train = tf.Variable(True, name='training')
+        self.is_train = tf.placeholder(tf.bool)
+
         self.W_conv1 = weight_variable([1, 7, 1025, 32])
 
         # self.b_conv1 = bias_variable([32])
