@@ -4,7 +4,7 @@ import tensorflow as tf
 # import matplotlib.pyplot as plt
 import itertools
 from IPython.display import Audio, display
-from utils import read_audio_spectrum
+from utils import read_audio_spectrum, fft_to_audio
 
 N_FFT = 2048
 N_FILTERS = 2048
@@ -66,20 +66,9 @@ def train_output(content, style, n_fft=N_FFT, n_filters=N_FILTERS, filter_width=
     a[:n_channels, :] = np.exp(result[0, 0].T) - 1
 
     # This code is supposed to do phase reconstruction
-    p = 2 * np.pi * np.random.random_sample(a.shape) - np.pi
-    for i in range(500):
-        S = a * np.exp(1j * p)
-        x = librosa.istft(S)
-        p = np.angle(librosa.stft(x, n_fft))
-
     out_name = '%s_to_%s_%s_fft_%s_width_%s_n.wav' % (
         content_no_extention, style_no_extention, n_fft, filter_width, n_filters)
-
-    output_filename = 'outputs/' + out_name
-
-    librosa.output.write_wav(output_filename, x, fs)
-
-    print output_filename
+    output_filename = fft_to_audio(a, fs, out_name)
     display(Audio(output_filename))
 
 

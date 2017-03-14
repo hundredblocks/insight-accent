@@ -30,23 +30,27 @@ def train_conv_net(max_iter, batch_size, num_classes, trainX, trainYa, valX, val
                          feed_dict={model.x: batch_x, model.y_: batch_y, model.keep_prob: 0.5, model.is_train: True})
                 if iterations % 5 == 0:
                     train_accuracy = model.accuracy.eval(session=sess,
-                                                         feed_dict={model.x: batch_x, model.y_: batch_y,
+                                                         feed_dict={model.x: batch_x,
+                                                                    model.y_: batch_y,
                                                                     model.keep_prob: 1.0,
                                                                     model.is_train: False})
                     train_loss = model.cross_entropy.eval(session=sess,
-                                                          feed_dict={model.x: batch_x, model.y_: batch_y,
+                                                          feed_dict={model.x: batch_x,
+                                                                     model.y_: batch_y,
                                                                      model.keep_prob: 1.0,
                                                                      model.is_train: False})
                     train_accuracies.append(train_accuracy)
                     train_losses.append(train_loss)
                     print("Step %d, Training accuracy: %g, Loss %s" % (iterations, train_accuracy, train_loss))
                 if iterations % 50 == 0:
-                    val_accuracy = model.accuracy.eval(session=sess, feed_dict={model.x: valX, model.y_: valY,
+                    val_accuracy = model.accuracy.eval(session=sess, feed_dict={model.x: valX,
+                                                                                model.y_: valY,
                                                                                 model.keep_prob: 1.0,
                                                                                 model.is_train: False,
                                                                                 })
                     val_loss = model.cross_entropy.eval(session=sess,
-                                                        feed_dict={model.x: batch_x, model.y_: batch_y,
+                                                        feed_dict={model.x: batch_x,
+                                                                   model.y_: batch_y,
                                                                    model.keep_prob: 1.0,
                                                                    model.is_train: False})
                     val_accuracies.append(val_accuracy)
@@ -54,7 +58,9 @@ def train_conv_net(max_iter, batch_size, num_classes, trainX, trainYa, valX, val
                     print("Step %d, Validation accuracy: %g, Loss %s" % (iterations, val_accuracy, val_loss))
                 iterations += 1
         test_accuracy = model.accuracy.eval(session=sess,
-                                            feed_dict={model.x: testX, model.y_: testY, model.keep_prob: 1.0,
+                                            feed_dict={model.x: testX,
+                                                       model.y_: testY,
+                                                       model.keep_prob: 1.0,
                                                        model.is_train: False})
         print("Test accuracy: %g" % test_accuracy)
         save_path = saver.save(sess, "./model.ckpt")
@@ -76,10 +82,8 @@ def train_conv_net(max_iter, batch_size, num_classes, trainX, trainYa, valX, val
 if __name__ == '__main__':
     num_classes, trainX, trainYa, valX, valY, testX, testY = preprocess_and_load('sorted_sound/', data_limit=50,
                                                                                  used_genders=['male'])
-    n = [np.copy(valX[0])]
-    valX = [n]
+    valX = [[a] for a in valX]
 
-    n = [np.copy(testX[0])]
-    testX = [n]
+    testX = [[a] for a in testX]
     train_conv_net(max_iter=500, batch_size=5, num_classes=num_classes, trainX=trainX,
                    trainYa=trainYa, valX=valX, valY=valY, testX=testX, testY=testY)
