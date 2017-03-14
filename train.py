@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from data_fetch import to_one_hot, preprocess
+from data_fetch import preprocess
 from model import SoundCNN
 
 num_classes, trainX, trainYa, valX, valY, testX, testY = preprocess('organized_sound/wav/')
@@ -28,8 +28,6 @@ def train_conv_net(max_iter, batch_size):
             for i in range(len(training_set) / batch_size):
                 batch = perms[i * batch_size:(i + 1) * batch_size, :]
                 batch_x = [a[0] for a in batch]
-                # print(batch_x)
-                # inner_x = [np.copy(batch_x)]
                 batch_x = [[a] for a in batch_x]
                 batch_y = [a[1] for a in batch]
                 # batch_y = to_one_hot(batch_y_nat)

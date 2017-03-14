@@ -188,9 +188,26 @@ def cut():
                 utils.slice(infile, outpath, 0, 3000)
 
 
+def cut_all():
+    base_dir = 'sorted_sound'
+    for root, dirs, files in os.walk(base_dir):
+        print(root, dirs, files)
+        if 'wav' not in dirs:
+            continue
+        out_path = os.path.join(root, 'cut')
+        if not os.path.exists(out_path):
+            os.makedirs(out_path)
+        wav_path = os.path.join(root, 'wav')
+        for filename in os.listdir(wav_path):
+            filepath = os.path.join(wav_path, filename)
+            infile = wave.open(filepath)
+            utils.multislice(infile, out_path, filename,
+                             second_cut_size=3, second_step_size=1)
+
+
 def preprocess(sound_path):
     folders = [f for f in listdir(sound_path) if not isfile(join(sound_path, f))]
-    classes = len(folders)
+    num_classes = len(folders)
     data_list = []
     label_list = []
     for folder_ix, folder in enumerate(folders):
@@ -225,7 +242,7 @@ def preprocess(sound_path):
     trainY = to_one_hot(trainYa)
     testY = to_one_hot(testYa)
     valY = to_one_hot(valYa)
-    return classes, trainX, trainY, valX, valY, testX, testY
+    return num_classes, trainX, trainY, valX, valY, testX, testY
 
 
 def to_one_hot(Y):
@@ -239,8 +256,9 @@ def to_one_hot(Y):
 
 
 if __name__ == '__main__':
+    pass
     # fetch_data()
     # inspect()
-    organize()
-    # cut()
+    # organize()
+    # cut_all()
     # preprocess('organized_sound/wav/')

@@ -2,6 +2,7 @@ import wave
 
 import librosa
 import numpy as np
+import os
 
 N_FFT = 2048
 
@@ -22,11 +23,32 @@ def slice(infile, outfilename, start_ms, end_ms):
     out.writeframes(infile.readframes(length))
 
 
+def multislice(infile, outfilepath, outfilename, second_cut_size=3, second_step_size=1):
+    # width = infile.getsampwidth()
+    rate = infile.getframerate()
+    nframes = infile.getnframes()
+    total_length_seconds = nframes / float(rate)
+
+    if total_length_seconds < second_cut_size:
+        return
+    usable_seconds = int(total_length_seconds // 1)
+
+    num_cuts = int(1 + (usable_seconds - second_cut_size) // second_step_size)
+
+    for i in range(num_cuts):
+        start_s = i*second_step_size
+        end_s = i*second_step_size + second_cut_size
+        name_and_extension = outfilename.split('.')
+        name_str = "_".join(name_and_extension[:-1])
+        cut_outname = '%s_%s_%s.%s' % (name_str, start_s, end_s, name_and_extension[-1])
+        slice(infile, os.path.join(outfilepath, cut_outname), start_ms=start_s*1000, end_ms=end_s*1000)
+
+
 # Reads wav file and produces spectrum
 # Fourier phases are ignored
 def read_audio_spectrum(x, fs, n_fft=N_FFT, reduce_factor=1):
     x = x[0:len(x) / reduce_factor]
-    S = librosa.stft(x, n_fft, hop_length=n_fft/4)
+    S = librosa.stft(x, n_fft, hop_length=n_fft / 4)
     # p = np.angle(S)
     S = np.log1p(np.abs(S))
     return S, fs
