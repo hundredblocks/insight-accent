@@ -40,7 +40,7 @@ def train_output(content, style, n_fft=N_FFT, n_filters=N_FILTERS, filter_width=
     kernel = np.random.randn(1, filter_width, n_channels, n_filters) * std
 
     g = tf.Graph()
-    with g.as_default(), g.device('/gpu:0'), tf.Session() as sess:
+    with g.as_default(), g.device('/cpu:0'), tf.Session() as sess:
         # data shape is "[batch, in_height, in_width, in_channels]",
         x = tf.placeholder('float32', [1, 1, n_samples, n_channels], name="x")
 
@@ -68,7 +68,7 @@ def train_output(content, style, n_fft=N_FFT, n_filters=N_FILTERS, filter_width=
     # This code is supposed to do phase reconstruction
     out_name = '%s_to_%s_%s_fft_%s_width_%s_n.wav' % (
         content_no_extention, style_no_extention, n_fft, filter_width, n_filters)
-    output_filename = fft_to_audio(a, fs, out_name)
+    output_filename = fft_to_audio(out_name, a, fs)
     display(Audio(output_filename))
 
 
@@ -144,10 +144,10 @@ def hyperparameter_grid_search(content, style, fft_values, filter_size_values, n
 
 
 if __name__ == '__main__':
-    # train_output(content="op_cancelled.wav", style="wake_up.wav", reduce_factor=1)
     # fft_values = [512, 1024, 2048]
     fft_values = [2048]
     # filter_size_values = [1, 2, 3, 4, 5, 10, 100]
     filter_size_values = [3]
     n_filter_values = [4096]
-    hyperparameter_grid_search("op_cancelled.wav", "wake_up.wav", fft_values, filter_size_values, n_filter_values)
+    train_output(content="op_cancelled.wav", style="wake_up.wav", n_fft=2048, filter_width=3, n_filters=4096)
+    # hyperparameter_grid_search("op_cancelled.wav", "wake_up.wav", fft_values, filter_size_values, n_filter_values)

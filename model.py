@@ -5,7 +5,7 @@ import numpy as np
 
 
 class SoundCNN():
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, learning_rate=1e-4):
         self.x = tf.placeholder(tf.float32, [None, 1, 130, 1025])
         self.y_ = tf.placeholder(tf.float32, [None, num_classes])
         self.is_train = tf.placeholder(tf.bool)
@@ -59,7 +59,7 @@ class SoundCNN():
         self.cross_entropy = -tf.reduce_sum(self.y_ * tf.log(tf.clip_by_value(self.y_conv, 1e-10, 1.0)))
         self.correct_prediction = tf.equal(tf.argmax(self.y_conv, 1), tf.argmax(self.y_, 1))
         self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, "float"))
-        self.train_step = tf.train.AdamOptimizer(1e-4).minimize(self.cross_entropy)
+        self.train_step = tf.train.AdamOptimizer(learning_rate).minimize(self.cross_entropy)
 
 
 def weight_variable(shape):

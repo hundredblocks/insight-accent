@@ -54,9 +54,9 @@ def read_audio_spectrum(x, fs, n_fft=N_FFT, reduce_factor=1):
     return S, fs
 
 
-def fft_to_audio(out_name, spectrogram, sampling_frequency, n_fft=N_FFT):
+def fft_to_audio(out_name, spectrogram, sampling_frequency, n_fft=N_FFT, n_iter=500):
     p = 2 * np.pi * np.random.random_sample(spectrogram.shape) - np.pi
-    for i in range(500):
+    for i in range(n_iter):
         S = spectrogram * np.exp(1j * p)
         x = librosa.istft(S)
         p = np.angle(librosa.stft(x, n_fft))

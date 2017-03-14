@@ -5,12 +5,12 @@ from data_fetch import preprocess_and_load
 from model import SoundCNN
 
 
-def train_conv_net(max_iter, batch_size, num_classes, trainX, trainYa, valX, valY, testX, testY):
+def train_conv_net(max_iter, batch_size, num_classes, learning_rate, trainX, trainYa, valX, valY, testX, testY):
     train_accuracies = []
     val_accuracies = []
     train_losses = []
     val_losses = []
-    model = SoundCNN(num_classes)
+    model = SoundCNN(num_classes, learning_rate)
     with tf.Session() as sess:
         tf.initialize_all_variables().run()
         saver = tf.train.Saver(tf.all_variables())
@@ -85,5 +85,5 @@ if __name__ == '__main__':
     valX = [[a] for a in valX]
 
     testX = [[a] for a in testX]
-    train_conv_net(max_iter=500, batch_size=5, num_classes=num_classes, trainX=trainX,
+    train_conv_net(max_iter=500, batch_size=5, num_classes=num_classes, learning_rate=1e-1, trainX=trainX,
                    trainYa=trainYa, valX=valX, valY=valY, testX=testX, testY=testY)
