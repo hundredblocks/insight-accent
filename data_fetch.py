@@ -224,7 +224,7 @@ def get_examples_from_paths(path_dict):
         class_int = classes.index(cls)
         for audio_file in paths:
             x, fs = librosa.load(audio_file)
-            S, fs = utils.read_audio_spectrum(x, fs)
+            S = utils.read_audio_spectrum(x, fs)
             formatted_vec = np.ascontiguousarray(S.T[None, None, :, :])
             data_list.append(formatted_vec)
 
