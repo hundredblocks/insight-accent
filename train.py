@@ -10,24 +10,29 @@ def train_conv_net(max_iter, batch_size, num_classes, learning_rate, trainX, tra
     val_accuracies = []
     train_losses = []
     val_losses = []
-    model = SoundCNN(num_classes, learning_rate)
+    model = SoundCNN(num_classes)
     with tf.Session() as sess:
         tf.initialize_all_variables().run()
         saver = tf.train.Saver(tf.all_variables())
         iterations = 0
         training_set = [[trainX[i, :, :], trainYa[i]] for i in range(len(trainYa))]
-
         while iterations < max_iter:
             perms = np.random.permutation(training_set)
-
             for i in range(len(training_set) / batch_size):
                 batch = perms[i * batch_size:(i + 1) * batch_size, :]
                 batch_x = [a[0] for a in batch]
                 batch_x = [[a] for a in batch_x]
                 batch_y = [a[1] for a in batch]
                 # batch_y = to_one_hot(batch_y_nat)
+                learning_rate = 1e-4
+                if 0 < iterations < max_iter / 2:
+                    learning_rate = 1e-2
+                if max_iter / 2 <= iterations < max_iter - max_iter / 4:
+                    learning_rate = 1e-3
                 sess.run(model.train_step,
-                         feed_dict={model.x: batch_x, model.y_: batch_y, model.keep_prob: 0.5, model.is_train: True})
+                         feed_dict={model.x: batch_x, model.y_: batch_y, model.keep_prob: 0.5,
+                                    model.is_train: True,
+                                    model.learning_rate: learning_rate})
                 if iterations % 5 == 0:
                     train_accuracy = model.accuracy.eval(session=sess,
                                                          feed_dict={model.x: batch_x,
@@ -83,7 +88,6 @@ if __name__ == '__main__':
     num_classes, trainX, trainYa, valX, valY, testX, testY = preprocess_and_load('sorted_sound/', data_limit=2000,
                                                                                  used_genders=['male'])
     valX = [[a] for a in valX]
-
     testX = [[a] for a in testX]
     train_conv_net(max_iter=5000, batch_size=100, num_classes=num_classes, learning_rate=1e-2, trainX=trainX,
                    trainYa=trainYa, valX=valX, valY=valY, testX=testX, testY=testY)

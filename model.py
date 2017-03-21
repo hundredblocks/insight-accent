@@ -8,12 +8,10 @@ class SoundCNN():
     def __init__(self, num_classes, learning_rate=1e-4):
         self.x = tf.placeholder(tf.float32, [None, 1, 130, 1025])
         self.y_ = tf.placeholder(tf.float32, [None, num_classes])
+        self.learning_rate = tf.placeholder(tf.float32)
         self.is_train = tf.placeholder(tf.bool)
 
         self.W_conv1 = weight_variable([1, 7, 1025, 32])
-
-        # self.b_conv1 = bias_variable([32])
-        # self.h_conv1 = tf.nn.relu(conv2d(self.x, self.W_conv1) + self.b_conv1)
 
         conv1 = conv2d(self.x, self.W_conv1)
         self.batch_norm1 = tf.contrib.layers.batch_norm(conv1,
@@ -24,9 +22,6 @@ class SoundCNN():
         self.h_pool1 = max_pool_2x2(self.h_conv1)
 
         self.W_conv2 = weight_variable([5, 5, 32, 64])
-
-        # self.b_conv2 = bias_variable([64])
-        # self.h_conv2 = tf.nn.relu(conv2d(self.h_pool1, self.W_conv2) + self.b_conv2)
 
         conv2 = conv2d(self.h_pool1, self.W_conv2)
         self.batch_norm2 = tf.contrib.layers.batch_norm(conv2,
@@ -39,8 +34,6 @@ class SoundCNN():
         self.h_pool2_flat = tf.reshape(self.h_pool2, [-1, 3 * 11 * 64])
         self.W_fc1 = weight_variable([3 * 11 * 64, 1024])
 
-        # self.b_fc1 = bias_variable([1024])
-        # self.h_fc1 = tf.nn.relu(tf.matmul(self.h_pool2_flat, self.W_fc1) + self.b_fc1)
         conv3 = tf.matmul(self.h_pool2_flat, self.W_fc1)
         self.batch_norm3 = tf.contrib.layers.batch_norm(conv3,
                                                         center=True, scale=True,
@@ -59,7 +52,7 @@ class SoundCNN():
         self.cross_entropy = -tf.reduce_sum(self.y_ * tf.log(tf.clip_by_value(self.y_conv, 1e-10, 1.0)))
         self.correct_prediction = tf.equal(tf.argmax(self.y_conv, 1), tf.argmax(self.y_, 1))
         self.accuracy = tf.reduce_mean(tf.cast(self.correct_prediction, "float"))
-        self.train_step = tf.train.AdamOptimizer(learning_rate).minimize(self.cross_entropy)
+        self.train_step = tf.train.AdamOptimizer(self.learning_rate).minimize(self.cross_entropy)
 
 
 def weight_variable(shape):

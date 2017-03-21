@@ -4,6 +4,7 @@ from os.path import isfile, join
 from shutil import copyfile
 
 import librosa
+import itertools
 
 from bs4 import BeautifulSoup
 import urllib
@@ -188,8 +189,8 @@ def cut():
                 utils.slice(infile, outpath, 0, 3000)
 
 
-def cut_all():
-    base_dir = 'sorted_sound'
+def cut_all(base_dir):
+    # base_dir = 'sorted_sound'
     for root, dirs, files in os.walk(base_dir):
         print(root, dirs, files)
         if 'wav' not in dirs:
@@ -205,14 +206,79 @@ def cut_all():
                              second_cut_size=3, second_step_size=1)
 
 
+def cut_daps(path):
+    for root, dirs, files in os.walk(path):
+        for filename in files:
+            if not filename.endswith('wav'):
+                continue
+            filepath = os.path.join(root, filename)
+            print(filepath)
+            infile = wave.open(filepath)
+            out_path = os.path.join(root, 'cut')
+            utils.multislice(infile, out_path, filename,
+                             second_cut_size=3, second_step_size=1)
+
+
 # used_genders is an array
 def preprocess_and_load(path, data_limit=None, used_genders=None):
     path_dict = get_path_dict(path, used_genders=used_genders)
 
     truncated_path_dict = get_equal_classes(path_dict, data_limit)
     new_classes_length = [[k, len(v)] for k, v in truncated_path_dict.items()]
-    print("classes and number of examples %s" %new_classes_length)
+    print("classes and number of examples %s" % new_classes_length)
     return get_examples_from_paths(truncated_path_dict)
+
+
+# Data format: [[input, target, paths],...]
+def get_all_audio_in_folder(path):
+    source_list = []
+    target_list = []
+    path_list = []
+    onlyfiles = [f for f in listdir(path) if
+                 isfile(join(path, f)) and not f.startswith('.DS')]
+    for f in onlyfiles:
+        file = os.path.join(path, f)
+        x, fs = librosa.load(file)
+        S = utils.read_audio_spectrum(x, fs)
+        formatted_vec = np.ascontiguousarray(S.T[None, None, :, :])
+        source_list.append(formatted_vec)
+        target_list.append(formatted_vec)
+        path_list.append(f)
+    # assume source and target have same dims
+    t_dim = source_list[0].shape[2]
+    f_dim = source_list[0].shape[3]
+
+    formatted_source = np.zeros([len(source_list), t_dim, f_dim])
+    for i, x in enumerate(source_list):
+        formatted_source[i] = x
+
+    formatted_target = np.zeros([len(source_list), t_dim, f_dim])
+    for i, x in enumerate(target_list):
+        formatted_target[i] = x
+    data_and_label = [[formatted_source[i, :, :], formatted_target[i, :, :], path_list[i]] for i in
+                      range(len(source_list))]
+    return data_and_label, fs
+
+
+def get_male_female_pairs(path, product=True):
+    folders = [f for f in listdir(path) if
+               not isfile(join(path, f)) and f.endswith('male')]
+    data = {}
+    for fol in folders:
+        data_and_label, fs = get_all_audio_in_folder(os.path.join(path, fol))
+        data[fol] = data_and_label
+    male_audio = [[a[0], a[-1]] for a in data['male']]
+    female_audio = [[a[1], a[-1]] for a in data['female']]
+    final_pairs = []
+    if product:
+        to_iterate = itertools.product(male_audio, female_audio)
+    else:
+        to_iterate = [[male_audio[i], female_audio[i]] for i in range(len(male_audio))]
+    for pair in to_iterate:
+        name = '%s_%s' % (pair[0][-1], pair[-1][-1])
+        formatted_pair = [np.array(pair[0][0]), np.array(pair[1][0]), name]
+        final_pairs.append(formatted_pair)
+    return final_pairs, fs
 
 
 def get_examples_from_paths(path_dict):
@@ -224,7 +290,7 @@ def get_examples_from_paths(path_dict):
         class_int = classes.index(cls)
         for audio_file in paths:
             x, fs = librosa.load(audio_file)
-            S, fs = utils.read_audio_spectrum(x, fs)
+            S = utils.read_audio_spectrum(x, fs)
             formatted_vec = np.ascontiguousarray(S.T[None, None, :, :])
             data_list.append(formatted_vec)
 
