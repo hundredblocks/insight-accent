@@ -80,10 +80,10 @@ def train_conv_net(max_iter, batch_size, num_classes, learning_rate, trainX, tra
 
 
 if __name__ == '__main__':
-    num_classes, trainX, trainYa, valX, valY, testX, testY = preprocess_and_load('sorted_sound/', data_limit=50,
+    num_classes, trainX, trainYa, valX, valY, testX, testY = preprocess_and_load('sorted_sound/', data_limit=2000,
                                                                                  used_genders=['male'])
     valX = [[a] for a in valX]
 
     testX = [[a] for a in testX]
-    train_conv_net(max_iter=500, batch_size=5, num_classes=num_classes, learning_rate=1e-1, trainX=trainX,
+    train_conv_net(max_iter=5000, batch_size=100, num_classes=num_classes, learning_rate=1e-2, trainX=trainX,
                    trainYa=trainYa, valX=valX, valY=valY, testX=testX, testY=testY)

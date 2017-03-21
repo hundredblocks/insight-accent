@@ -145,9 +145,13 @@ def hyperparameter_grid_search(content, style, fft_values, filter_size_values, n
 
 if __name__ == '__main__':
     # fft_values = [512, 1024, 2048]
-    fft_values = [2048]
+     train_output(content="manu_american.wav", style="manu_british.wav", n_fft=2048, filter_width=4, n_filters=4096)
+   # fft_values = [2048]
     # filter_size_values = [1, 2, 3, 4, 5, 10, 100]
     filter_size_values = [3]
     n_filter_values = [4096]
     train_output(content="op_cancelled.wav", style="wake_up.wav", n_fft=2048, filter_width=3, n_filters=4096)
     # hyperparameter_grid_search("op_cancelled.wav", "wake_up.wav", fft_values, filter_size_values, n_filter_values)
+   # filter_size_values = [1,2,3, 11]
+   # n_filter_values = [4096]
+   # hyperparameter_grid_search("op_cancelled.wav", "british.wav", fft_values, filter_size_values, n_filter_values)
