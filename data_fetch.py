@@ -264,11 +264,22 @@ def get_male_female_pairs(path, product=True):
     folders = [f for f in listdir(path) if
                not isfile(join(path, f)) and f.endswith('male')]
     data = {}
+    label_map = {}
     for fol in folders:
         data_and_label, fs = get_all_audio_in_folder(os.path.join(path, fol))
         data[fol] = data_and_label
-    male_audio = [[a[0], a[-1]] for a in data['male']]
-    female_audio = [[a[1], a[-1]] for a in data['female']]
+        # formatted_label = data_and_label[-1].split('_')[-1]
+
+        label_map[fol] = {d[-1].split('_')[-1]: d[0] for d in data_and_label}
+
+    male_audio = []
+    female_audio = []
+    female_map = label_map['female']
+    for key, value in label_map['male'].items():
+        male_audio.append([value, key])
+        female_audio.append([female_map[key], key])
+    # male_audio = [[a[0], a[-1]] for a in data['male']]
+    # female_audio = [[a[1], a[-1]] for a in data['female']]
     final_pairs = []
     if product:
         to_iterate = itertools.product(male_audio, female_audio)
@@ -279,6 +290,10 @@ def get_male_female_pairs(path, product=True):
         formatted_pair = [np.array(pair[0][0]), np.array(pair[1][0]), name]
         final_pairs.append(formatted_pair)
     return final_pairs, fs
+
+
+def match(male, female):
+    end_pairs = []
 
 
 def get_examples_from_paths(path_dict):
