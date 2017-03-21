@@ -177,6 +177,7 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
     validation_xs_norm, validation_ys_norm = get_normalized_x_y(validation)
     test_xs_norm, test_ys_norm = get_normalized_x_y(test)
     sess.run(tf.global_variables_initializer())
+    saver = tf.train.Saver(tf.all_variables())
     for epoch_i in range(n_epochs):
         perms = np.random.permutation(training_set)
         for i in range(len(training_set) / batch_size):
@@ -204,6 +205,7 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
     if len(test) > 0:
         print("Test", sess.run(ae['cost'], feed_dict={ae['x']: test_xs_norm,
                                                       ae['target']: test_ys_norm}))
+    save_path = saver.save(sess, "./AE.ckpt")
     return ae
 
 
@@ -230,9 +232,12 @@ def vanilla_autoencoder(test_split=.1, validation_split=.1):
     train, val, test = split_dataset(data_and_path, test_split, validation_split)
     # train, val, test = data_and_path, [], []
     print(len(train), len(val), len(test), len(data_and_path))
-    ae = train_autoencoder(ae, sess, train, val, test, batch_size=2, n_epochs=10)
+    ae = train_autoencoder(ae, sess, train, val, test, batch_size=1, n_epochs=10)
 
-    plot_spectrograms(train, sess, ae, t_dim, f_dim)
+    # plot_spectrograms(train, sess, ae, t_dim, f_dim)
+    output_examples(train, ae, sess, fs, 'ae/train')
+    output_examples(val, ae, sess, fs, 'ae/val')
+    output_examples(test, ae, sess, fs, 'ae/test')
     plt.show()
 
 
