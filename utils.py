@@ -57,6 +57,16 @@ def read_audio_spectrum(x, fs, n_fft=N_FFT, reduce_factor=1):
     return S
 
 
+def plot_spectrum(x, fs):
+    spec = read_audio_spectrum(x, fs)
+    # test_xs = np.zeros([1, spec.shape[0], spec.shape[1], 1])
+    # for i, a in enumerate(spec):
+    #     test_xs[i][:, :, 0] = a
+    plt.figure()
+    plt.imshow(spec)
+    # plt.plot(np.reshape(test_xs[spec, :], (spec.shape[0], spec.shape[1])), aspect='auto')
+    plt.show()
+
 def fft_to_audio(out_name, spectrogram, sampling_frequency, n_fft=N_FFT, n_iter=500, entire_path=False):
     p = 2 * np.pi * np.random.random_sample(spectrogram.shape) - np.pi
     for i in range(n_iter):

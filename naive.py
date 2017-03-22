@@ -43,7 +43,8 @@ def train_output(content, style, n_fft=N_FFT, n_filters=N_FILTERS, filter_width=
         # data shape is "[batch, in_height, in_width, in_channels]",
 
         # model = random_models.DoubleLayerConv(filter_width, n_channels, n_samples, n_filters)
-        model = random_models.SingleLayer2DConv(7, 7, n_channels, n_samples, 32)
+        model = random_models.SingleLayerConv(filter_width, n_channels, n_samples, n_filters)
+        # model = random_models.SingleLayer2DConv(7, 7, n_channels, n_samples, 32)
         x = model.generate_input(placeholder=True)
 
         content_layer, feature_layer = model.get_feature(x)
@@ -59,7 +60,6 @@ def train_output(content, style, n_fft=N_FFT, n_filters=N_FILTERS, filter_width=
 
     initial_spectrogram = np.zeros_like(a_content)
     initial_spectrogram[:n_channels, :] = np.exp(model.to_spectrogram(initial)) - 1
-    np.exp(initial[0][:, :, 0])
     final_spectrogram = np.zeros_like(a_content)
     final_spectrogram[:n_channels, :] = np.exp(model.to_spectrogram(result)) - 1
     # final_spectrogram[:n_channels, :] = np.exp(result[0, 0].T) - 1
@@ -73,8 +73,7 @@ def train_output(content, style, n_fft=N_FFT, n_filters=N_FILTERS, filter_width=
 
 
 def train(n_samples, n_channels, model, content_features, style_gram):
-    # ALPHA = 1e-2
-    ALPHA = 1e-3
+    alpha = 1e-2
 
     with tf.Graph().as_default():
         # Initial soundwave
@@ -82,7 +81,7 @@ def train(n_samples, n_channels, model, content_features, style_gram):
 
         content_layer, feature_layer = model.get_feature(x)
 
-        content_loss = ALPHA * 2 * tf.nn.l2_loss(content_layer - content_features)
+        content_loss = alpha * 2 * tf.nn.l2_loss(content_layer - content_features)
 
         _, height, width, number = map(lambda i: i.value, feature_layer.get_shape())
         print(feature_layer.get_shape())
@@ -140,7 +139,7 @@ if __name__ == '__main__':
     # filter_size_values = [1, 2, 3, 4, 5, 10, 100]
     filter_size_values = [3]
     n_filter_values = [4096]
-    train_output(content="op_cancelled.wav", style="woman.wav", n_fft=2048, filter_width=4, n_filters=4096)
+    train_output(content="manu_american.wav", style="manu_british.wav", n_fft=2048, filter_width=3, n_filters=4096)
     # hyperparameter_grid_search("op_cancelled.wav", "wake_up.wav", fft_values, filter_size_values, n_filter_values)
    # filter_size_values = [1,2,3, 11]
    # n_filter_values = [4096]
