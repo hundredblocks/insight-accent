@@ -259,58 +259,55 @@ def test_mnist():
     for epoch_i in range(n_epochs):
         print('--- Epoch', epoch_i)
         train_cost = 0
-	print("Number train examples %s" % mnist.train.num_examples)
-	print("Num batches %s" % (mnist.train.num_examples // batch_size)) 
+        print("Number train examples %s" % mnist.train.num_examples)
+        print("Num batches %s" % (mnist.train.num_examples // batch_size))
         for batch_i in range(mnist.train.num_examples // batch_size):
-	    # print(batch_i)
+            # print(batch_i)
             batch_xs, _ = mnist.train.next_batch(batch_size)
             train_cost += sess.run([ae['cost'], optimizer],
                                    feed_dict={ae['x']: batch_xs})[0]
-	    # print("training done on batch")
-            #if batch_i % 20 == 0:
-            if False:
-	        # %%
-                # Plot example reconstructions from latent layer
-                imgs = []
-                for img_i in np.linspace(-3, 3, n_examples):
-                    for img_j in np.linspace(-3, 3, n_examples):
-                        z = np.array([[img_i, img_j]], dtype=np.float32)
-                        recon = sess.run(ae['y'], feed_dict={ae['z']: z})
-                        imgs.append(np.reshape(recon, (1, 28, 28, 1)))
-                imgs_cat = np.concatenate(imgs)
-                ax_manifold.imshow(montage_batch(imgs_cat))
-                fig_manifold.savefig('images/manifold_%08d.png' % t_i)
+        # %%
+        # Plot example reconstructions from latent layer
+        imgs = []
+        for img_i in np.linspace(-3, 3, n_examples):
+            for img_j in np.linspace(-3, 3, n_examples):
+                z = np.array([[img_i, img_j]], dtype=np.float32)
+                recon = sess.run(ae['y'], feed_dict={ae['z']: z})
+                imgs.append(np.reshape(recon, (1, 28, 28, 1)))
+        imgs_cat = np.concatenate(imgs)
+        ax_manifold.imshow(montage_batch(imgs_cat))
+        fig_manifold.savefig('images/manifold_%08d.png' % t_i)
 
-                # %%
-                # Plot example reconstructions
-                recon = sess.run(ae['y'], feed_dict={ae['x']: test_xs})
-                print("reconstruction obtained")
-                for example_i in range(n_examples):
-                    axs_reconstruction[0][example_i].imshow(
-                        np.reshape(test_xs[example_i, :], (28, 28)),
-                        cmap='gray')
-                    axs_reconstruction[1][example_i].imshow(
-                        np.reshape(
-                            np.reshape(recon[example_i, ...], (784,)),
-                            (28, 28)),
-                        cmap='gray')
-                    axs_reconstruction[0][example_i].axis('off')
-                    axs_reconstruction[1][example_i].axis('off')
-                fig_reconstruction.savefig('images/reconstruction_%08d.png' % t_i)
+        # %%
+        # Plot example reconstructions
+        recon = sess.run(ae['y'], feed_dict={ae['x']: test_xs})
+        print("reconstruction obtained")
+        for example_i in range(n_examples):
+            axs_reconstruction[0][example_i].imshow(
+                np.reshape(test_xs[example_i, :], (28, 28)),
+                cmap='gray')
+            axs_reconstruction[1][example_i].imshow(
+                np.reshape(
+                    np.reshape(recon[example_i, ...], (784,)),
+                    (28, 28)),
+                cmap='gray')
+            axs_reconstruction[0][example_i].axis('off')
+            axs_reconstruction[1][example_i].axis('off')
+        fig_reconstruction.savefig('images/reconstruction_%08d.png' % t_i)
 
-                # %%
-                # Plot manifold of latent layer
-                zs = sess.run(ae['z'], feed_dict={ae['x']: xs})
-		print("manifold obtained")
-                ax_image_manifold.clear()
-                ax_image_manifold.scatter(zs[:, 0], zs[:, 1],
-                                          c=np.argmax(ys, 1), alpha=0.2)
-                ax_image_manifold.set_xlim([-6, 6])
-                ax_image_manifold.set_ylim([-6, 6])
-                ax_image_manifold.axis('off')
-                fig_image_manifold.savefig('images/image_manifold_%08d.png' % t_i)
+        # %%
+        # Plot manifold of latent layer
+        zs = sess.run(ae['z'], feed_dict={ae['x']: xs})
+        print("manifold obtained")
+        ax_image_manifold.clear()
+        ax_image_manifold.scatter(zs[:, 0], zs[:, 1],
+                                  c=np.argmax(ys, 1), alpha=0.2)
+        ax_image_manifold.set_xlim([-6, 6])
+        ax_image_manifold.set_ylim([-6, 6])
+        ax_image_manifold.axis('off')
+        fig_image_manifold.savefig('images/image_manifold_%08d.png' % t_i)
 
-                t_i += 1
+        t_i += 1
 
         print('Train cost:', train_cost /
               (mnist.train.num_examples // batch_size))
