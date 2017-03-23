@@ -130,7 +130,7 @@ def cross_autoencoder(input_shape=[None, 784],
 def VAE(input_shape=[None, 784],
         n_filters=[1, 10, 10, 10],
         filter_sizes=[3, 3, 3, 3],
-        z_dim=50):
+        z_dim=50, loss_function='l2'):
     # %%
     # Input placeholder
     """Build a deep denoising autoencoder w/ tied weights.
@@ -144,6 +144,7 @@ def VAE(input_shape=[None, 784],
         filter_sizes : list, optional
             Description
         z_dim: number of dimensions of latent space
+        loss_function: l2 or cross entropy
 
         Returns
         -------
@@ -188,13 +189,9 @@ def VAE(input_shape=[None, 784],
         shapes.append(current_input.get_shape().as_list())
 
         outputs.append(current_input)
-        W_in = tf.Variable(
-            tf.random_uniform([
-                filter_sizes[layer_i],
-                filter_sizes[layer_i],
-                n_input, n_output],
-                -1.0 / math.sqrt(n_input),
-                1.0 / math.sqrt(n_input)))
+
+        output = tf.nn.relu(conv_layer(current_input, [filter_sizes[layer_i], filter_sizes[layer_i], n_input, n_output],
+                                       -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input), n_output))
 
         W_out = tf.Variable(
             tf.random_uniform([
@@ -203,15 +200,10 @@ def VAE(input_shape=[None, 784],
                 n_input, n_output],
                 -1.0 / math.sqrt(n_input),
                 1.0 / math.sqrt(n_input)))
-        b = tf.Variable(tf.zeros([n_output]))
 
         encoder.append(W_out)
-        conv = tf.add(tf.nn.conv2d(
-            current_input, W_in, strides=[1, 2, 2, 1], padding='SAME'), b)
-        output = tf.nn.relu(conv)
+
         print(output.get_shape())
-        if layer_i == 0:
-            inspect = output
 
         current_input = output
 
@@ -221,33 +213,14 @@ def VAE(input_shape=[None, 784],
     output_shape = output_flatten.get_shape().as_list()[-1]
     print(output_flatten.get_shape())
 
-    w_m = tf.Variable(
-        tf.random_uniform([
-            output_flatten.get_shape().as_list()[1], z_dim],
-            -1.0 / math.sqrt(output_shape),
-            1.0 / math.sqrt(output_shape)))
+    z_mean = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
 
-    b_m = tf.Variable(tf.zeros([z_dim]))
-    z_mean = tf.matmul(output_flatten, w_m) + b_m
-
-    w_s = tf.Variable(
-        tf.random_uniform([
-            output_flatten.get_shape().as_list()[1], z_dim],
-            -1.0 / math.sqrt(output_shape),
-            1.0 / math.sqrt(output_shape)))
-    b_s = tf.Variable(tf.zeros([z_dim]))
-    z_sigma = tf.matmul(output_flatten, w_s) + b_s
+    z_sigma = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
 
     z = sample_gaussian(z_mean, z_sigma)
     print(z.get_shape())
 
-    w_r = tf.Variable(
-        tf.random_uniform([
-            z_dim, output_flatten.get_shape().as_list()[1]],
-            -1.0 / math.sqrt(output_shape),
-            1.0 / math.sqrt(output_shape)))
-    b_r = tf.Variable(tf.zeros([output_flatten.get_shape().as_list()[1]]))
-    rec = tf.matmul(z, w_r) + b_r
+    rec = fc_layer(z, z_dim, output_flatten.get_shape().as_list()[1], output_shape)
 
     print(rec.get_shape())
 
@@ -291,17 +264,18 @@ def VAE(input_shape=[None, 784],
     print(y.get_shape())
     target = tf.placeholder(tf.float32, input_shape, name='target')
     # cost function measures pixel-wise difference
-    rec_cost = tf.reduce_mean(tf.square(y - target))
+    if loss_function == 'l2':
+        rec_cost = l2_loss(y, target)
+    else:
+        rec_cost = cross_entropy(y, target)
 
     vae_loss_kl = -0.5 * tf.reduce_sum(1 + z_sigma - tf.square(z_mean) - tf.exp(z_sigma), 1)
-
     vae_loss_kl = tf.reduce_mean(vae_loss_kl) / n_points
 
     cost = rec_cost + vae_loss_kl
 
     # %%
-    return {'x': x, 'z': z, 'y': y, 'target': target, 'cost': cost, 'z_mean': z_mean, 'z_sigma': z_sigma,
-            'inspect': inspect}, shapes
+    return {'x': x, 'z': z, 'y': y, 'target': target, 'cost': cost, 'z_mean': z_mean, 'z_sigma': z_sigma}, shapes
 
 
 def VAE_MNIST(input_shape=[None, 784],
@@ -416,6 +390,29 @@ def weight_variable(shape):
     return tf.Variable(initial)
 
 
+def fc_weight_variable(in_dim, out_dim, output_shape):
+    return tf.Variable(
+        tf.random_uniform([
+            in_dim, out_dim],
+            -1.0 / math.sqrt(output_shape),
+            1.0 / math.sqrt(output_shape)))
+
+
+def conv_layer(prev_layer, shape, min_val, max_val, n_output):
+    weights = tf.Variable(tf.random_uniform(shape, min_val, max_val))
+    b = tf.Variable(tf.zeros([n_output]))
+
+    # encoder.append(W_out)
+    return tf.add(tf.nn.conv2d(
+        prev_layer, weights, strides=[1, 2, 2, 1], padding='SAME'), b)
+
+
+def fc_layer(prev_layer, in_dim, out_dim, output_shape):
+    w_m = fc_weight_variable(in_dim, out_dim, output_shape)
+    b_m = tf.Variable(tf.zeros([out_dim]))
+    return tf.matmul(prev_layer, w_m) + b_m
+
+
 def bias_variable(shape):
     '''Helper function to create a bias variable initialized with
     a constant value.
@@ -426,3 +423,13 @@ def bias_variable(shape):
     '''
     initial = tf.random_normal(shape, mean=0.0, stddev=0.01)
     return tf.Variable(initial)
+
+
+def cross_entropy(y, target, offset=1e-7):
+    obs_ = tf.clip_by_value(y, offset, 1 - offset)
+    return -tf.reduce_sum(target * tf.log(obs_) + (1 - target) * tf.log(1 - obs_))
+
+
+def l2_loss(y, target, offset=1e-7):
+    obs_ = tf.clip_by_value(y, offset, 1 - offset)
+    return tf.reduce_mean(tf.square(obs_ - target))
