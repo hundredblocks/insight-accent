@@ -7,6 +7,7 @@ import tensorflow as tf
 import numpy as np
 import math
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from data_fetch import preprocess_and_load, get_all_audio_in_folder, get_male_female_pairs
@@ -149,12 +150,25 @@ def VAE(input_shape=[None, 784],
     else:
         x = tf.placeholder(tf.float32, input_shape)
 
+    if len(x.get_shape()) == 2:
+        # x_dim = np.sqrt(x.get_shape().as_list()[1])
+        # if x_dim != int(x_dim):
+        #     raise ValueError('Unsupported input dimensions: root is %s' % x_dim)
+        # x_dim = int(x_dim)
+        x_tensor = tf.reshape(x, [-1, input_shape[1]])
+    elif len(x.get_shape()) == 4:
+        x_tensor = x
+    else:
+        raise ValueError('Unsupported input dimensions')
+    x = x_tensor
+
     activation = tf.nn.softplus
 
     dims = x.get_shape().as_list()
     n_features = dims[1]
 
     W_enc1 = weight_variable([n_features, n_components_encoder])
+    print(W_enc1.get_shape())
     b_enc1 = bias_variable([n_components_encoder])
     h_enc1 = activation(tf.matmul(x, W_enc1) + b_enc1)
 
@@ -174,7 +188,8 @@ def VAE(input_shape=[None, 784],
 
     z_mu = tf.matmul(h_enc3, W_mu) + b_mu
     z_log_sigma = 0.5 * (tf.matmul(h_enc3, W_log_sigma) + b_log_sigma)
-
+    print(z_mu.get_shape())
+    print(z_log_sigma.get_shape())
     # %%
     # Sample from noise distribution p(eps) ~ N(0, 1)
     if debug:
@@ -218,7 +233,7 @@ def VAE(input_shape=[None, 784],
     return {'cost': loss, 'x': x, 'z': z, 'y': y}
 
 
-def test_mnist():
+def test(mnist_flag=True):
     """Summary
 
     Returns
@@ -232,9 +247,33 @@ def test_mnist():
     import matplotlib.pyplot as plt
 
     # %%
+    # Fit all training data
+    t_i = 0
+    batch_size = 100
+    n_epochs = 10
+    n_examples = 20
+
+    # %%
     # load MNIST as before
-    mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
-    ae = VAE()
+    if mnist_flag:
+        mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
+        test_xs, _ = mnist.test.next_batch(n_examples)
+        xs, ys = mnist.test.images, mnist.test.labels
+        num_examples = mnist.train.num_examples
+        hidden_size = 2
+        ae = VAE(n_hidden=hidden_size)
+
+    else:
+        data_and_path, fs = get_male_female_pairs('encoder_data/DAPS/small_test/cut', product=False)
+        only_female = [f[1] for f in data_and_path]
+        train, val, test_xs = split_dataset(only_female, .1, .1)
+        tdim = only_female[0].shape[0]
+        fdim = only_female[0].shape[1]
+        num_examples = len(train)
+        ae = VAE(input_shape=[None, tdim * fdim])
+
+    # hidden_size = 2
+    # ae = VAE(n_hidden=hidden_size)
 
     # %%
     learning_rate = 0.001
@@ -245,29 +284,27 @@ def test_mnist():
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
 
-    # %%
-    # Fit all training data
-    t_i = 0
-    batch_size = 100
-    n_epochs = 10
-    n_examples = 20
-    test_xs, _ = mnist.test.next_batch(n_examples)
-    xs, ys = mnist.test.images, mnist.test.labels
     fig_manifold, ax_manifold = plt.subplots(1, 1)
     fig_reconstruction, axs_reconstruction = plt.subplots(2, n_examples, figsize=(10, 2))
     fig_image_manifold, ax_image_manifold = plt.subplots(1, 1)
     for epoch_i in range(n_epochs):
         print('--- Epoch', epoch_i)
         train_cost = 0
-        print("Number train examples %s" % mnist.train.num_examples)
-        print("Num batches %s" % (mnist.train.num_examples // batch_size))
-        for batch_i in range(mnist.train.num_examples // batch_size):
-            # print(batch_i)
-            batch_xs, _ = mnist.train.next_batch(batch_size)
+        print("Number train examples %s" % num_examples)
+        print("Num batches %s" % (num_examples // batch_size))
+        if not mnist_flag:
+            perms = np.random.permutation(train)
+        for batch_i in range(num_examples // batch_size):
+
+            if mnist_flag:
+                batch_xs, _ = mnist.train.next_batch(batch_size)
+            else:
+                batch_xs = perms[batch_i * batch_size:(batch_i + 1) * batch_size, :]
+
             train_cost += sess.run([ae['cost'], optimizer],
                                    feed_dict={ae['x']: batch_xs})[0]
         # %%
-        # Plot example reconstructions from latent layer
+        # Plot example reconstructions from walking the latent layer
         imgs = []
         for img_i in np.linspace(-3, 3, n_examples):
             for img_j in np.linspace(-3, 3, n_examples):
@@ -310,15 +347,20 @@ def test_mnist():
         t_i += 1
 
         print('Train cost:', train_cost /
-              (mnist.train.num_examples // batch_size))
+              (num_examples // batch_size))
 
         valid_cost = 0
-        for batch_i in range(mnist.validation.num_examples // batch_size):
-            batch_xs, _ = mnist.validation.next_batch(batch_size)
+        validation_examples = mnist.validation.num_examples
+
+        for batch_i in range(validation_examples // batch_size):
+            if mnist_flag:
+                batch_xs, _ = mnist.validation.next_batch(batch_size)
+            else:
+                batch_xs, _ = get_normalized_x_y(val)
             valid_cost += sess.run([ae['cost']],
                                    feed_dict={ae['x']: batch_xs})[0]
         print('Validation cost:', valid_cost /
-              (mnist.validation.num_examples // batch_size))
+              (validation_examples // batch_size))
 
 
 def weight_variable(shape):
@@ -446,7 +488,7 @@ def split_dataset(dataset, test_split=.1, validation_split=.1):
     return dataset[:train_limit], dataset[train_limit: validation_limit], dataset[validation_limit:]
 
 
-def vanilla_autoencoder(test_split=.1, validation_split=.1):
+def vanilla_autoencoder(test_split=.1, validation_split=.1, autoencode=False):
     data_and_path, fs = get_male_female_pairs('encoder_data/DAPS/small_test/cut', product=False)
     print("data loaded")
     # data_and_path = data_and_path[:2]
@@ -460,9 +502,14 @@ def vanilla_autoencoder(test_split=.1, validation_split=.1):
     sess = tf.Session()
     train, val, test = split_dataset(data_and_path, test_split, validation_split)
     # train, val, test = data_and_path, [], []
+    if autoencode:
+        train_model = [[t[1], t[1], t[-1]] for t in train]
+        val_model = [[t[1], t[1], t[-1]] for t in val]
+        test_model = [[t[1], t[1], t[-1]] for t in test]
+        ae = train_autoencoder(ae, sess, train_model, val_model, test_model, batch_size=1, n_epochs=10)
+    else:
+        ae = train_autoencoder(ae, sess, train, val, test, batch_size=1, n_epochs=10)
     print(len(train), len(val), len(test), len(data_and_path))
-    ae = train_autoencoder(ae, sess, train, val, test, batch_size=1, n_epochs=10)
-
     # plot_spectrograms(train, sess, ae, t_dim, f_dim)
     output_examples(train, ae, sess, fs, 'ae/train')
     output_examples(val, ae, sess, fs, 'ae/val')
@@ -521,5 +568,5 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 if __name__ == '__main__':
     # test_mnist()
     # test_data()
-    # vanilla_autoencoder()
-    test_mnist()
+    vanilla_autoencoder(autoencode=True)
+    # test(mnist_flag=False)
