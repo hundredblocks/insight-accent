@@ -138,10 +138,187 @@ def cross_autoencoder(input_shape=[None, 784],
 
 
 def VAE(input_shape=[None, 784],
-        n_components_encoder=2048,
-        n_components_decoder=2048,
-        n_hidden=2,
-        debug=False):
+        n_filters=[1, 10, 10, 10],
+        filter_sizes=[3, 3, 3, 3],
+        corruption=False):
+    # %%
+    # Input placeholder
+    """Build a deep denoising autoencoder w/ tied weights.
+
+        Parameters
+        ----------
+        input_shape : list, optional
+            Description
+        n_filters : list, optional
+            Description
+        filter_sizes : list, optional
+            Description
+
+        Returns
+        -------
+        x : Tensor
+            Input placeholder to the network
+        z : Tensor
+            Inner-most latent representation
+        y : Tensor
+            Output reconstruction of the input
+        cost : Tensor
+            Overall cost to use for training
+        """
+    # %%
+    # input to the network
+    x = tf.placeholder(
+        tf.float32, input_shape, name='x')
+
+    # %%
+    # ensure 2-d is converted to square tensor.
+    if len(x.get_shape()) == 2:
+        x_dim = np.sqrt(x.get_shape().as_list()[1])
+        if x_dim != int(x_dim):
+            raise ValueError('Unsupported input dimensions: root is %s' % x_dim)
+        x_dim = int(x_dim)
+        x_tensor = tf.reshape(
+            x, [-1, x_dim, x_dim, n_filters[0]])
+    elif len(x.get_shape()) == 4:
+        x_tensor = x
+    else:
+        raise ValueError('Unsupported input dimensions')
+    current_input = x_tensor
+    print("current_input", current_input)
+    n_points = x_tensor.get_shape().as_list()[1] * x_tensor.get_shape().as_list()[2]
+
+    # %%
+    # Build the encoder
+    encoder = []
+    shapes = []
+    outputs = []
+    for layer_i, n_output in enumerate(n_filters[1:]):
+        n_input = current_input.get_shape().as_list()[3]
+        shapes.append(current_input.get_shape().as_list())
+
+        outputs.append(current_input)
+        W_in = tf.Variable(
+            tf.random_uniform([
+                filter_sizes[layer_i],
+                filter_sizes[layer_i],
+                n_input, n_output],
+                -1.0 / math.sqrt(n_input),
+                1.0 / math.sqrt(n_input)))
+
+        W_out = tf.Variable(
+            tf.random_uniform([
+                filter_sizes[layer_i],
+                filter_sizes[layer_i],
+                n_input, n_output],
+                -1.0 / math.sqrt(n_input),
+                1.0 / math.sqrt(n_input)))
+        b = tf.Variable(tf.zeros([n_output]))
+
+        encoder.append(W_out)
+        conv = tf.add(tf.nn.conv2d(
+            current_input, W_in, strides=[1, 2, 2, 1], padding='SAME'), b)
+        output = tf.nn.relu(conv)
+        print(output.get_shape())
+        if layer_i == 0:
+            inspect = output
+
+        current_input = output
+
+    # TODO Temp
+    _, w, h, c = output.get_shape().as_list()
+    output_flatten = tf.reshape(output, [-1, w * h * c])
+    output_shape = output_flatten.get_shape().as_list()[-1]
+    print(output_flatten.get_shape())
+    z_dim = n_filters[-1]
+
+    w_m = tf.Variable(
+        tf.random_uniform([
+            output_flatten.get_shape().as_list()[1], z_dim],
+            -1.0 / math.sqrt(output_shape),
+            1.0 / math.sqrt(output_shape)))
+
+    b_m = tf.Variable(tf.zeros([z_dim]))
+    z_mean = tf.matmul(output_flatten, w_m) + b_m
+
+    w_s = tf.Variable(
+        tf.random_uniform([
+            output_flatten.get_shape().as_list()[1], z_dim],
+            -1.0 / math.sqrt(output_shape),
+            1.0 / math.sqrt(output_shape)))
+    b_s = tf.Variable(tf.zeros([z_dim]))
+    z_sigma = tf.matmul(output_flatten, w_s) + b_s
+
+    z = sample_gaussian(z_mean, z_sigma)
+    print(z.get_shape())
+
+    w_r = tf.Variable(
+        tf.random_uniform([
+            z_dim, output_flatten.get_shape().as_list()[1]],
+            -1.0 / math.sqrt(output_shape),
+            1.0 / math.sqrt(output_shape)))
+    b_r = tf.Variable(tf.zeros([output_flatten.get_shape().as_list()[1]]))
+    rec = tf.matmul(z, w_r) + b_r
+
+    print(rec.get_shape())
+
+    batch = tf.shape(output)[0]
+    target = [batch]
+    target.extend((output.get_shape().as_list()[1:]))
+
+    current_input = tf.reshape(rec, target)
+    print(current_input.get_shape())
+
+    encoder.reverse()
+    shapes.reverse()
+
+    outputs.reverse()
+
+    # %%
+    # Build the decoder
+    for layer_i, shape in enumerate(shapes):
+        print("shapes", shape)
+        # TODO Different weights
+        W_out = encoder[layer_i]
+        print("wout", W_out.get_shape())
+        b = tf.Variable(tf.zeros([W_out.get_shape().as_list()[2]]))
+
+        deconv = tf.add(
+            tf.nn.conv2d_transpose(
+                current_input, W_out,
+                tf.stack([tf.shape(x)[0], shape[1], shape[2], shape[3]]),
+                strides=[1, 2, 2, 1], padding='SAME'), b)
+
+        # output_res = tf.add(deconv, outputs[layer_i])
+        # output = tf.nn.relu(output_res)
+
+        output = tf.nn.relu(deconv)
+        current_input = output
+        print(output.get_shape())
+
+    # %%
+    # now have the reconstruction through the network
+    y = current_input
+    print(y.get_shape())
+    target = tf.placeholder(tf.float32, input_shape, name='target')
+    # cost function measures pixel-wise difference
+    rec_cost = tf.reduce_mean(tf.square(y - target))
+
+    vae_loss_kl = -0.5 * tf.reduce_sum(1 + z_sigma - tf.square(z_mean) - tf.exp(z_sigma), 1)
+
+    vae_loss_kl = tf.reduce_mean(vae_loss_kl) / n_points
+
+    cost = rec_cost + vae_loss_kl
+
+    # %%
+    return {'x': x, 'z': z, 'y': y, 'target': target, 'cost': cost, 'z_mean': z_mean, 'z_sigma': z_sigma,
+            'inspect': inspect}, shapes
+
+
+def VAE_MNIST(input_shape=[None, 784],
+              n_components_encoder=2048,
+              n_components_decoder=2048,
+              n_hidden=2,
+              debug=False):
     # %%
     # Input placeholder
     if debug:
@@ -166,7 +343,6 @@ def VAE(input_shape=[None, 784],
 
     dims = x.get_shape().as_list()
     n_features = dims[1]
-
     W_enc1 = weight_variable([n_features, n_components_encoder])
     print(W_enc1.get_shape())
     b_enc1 = bias_variable([n_components_encoder])
@@ -233,6 +409,11 @@ def VAE(input_shape=[None, 784],
     return {'cost': loss, 'x': x, 'z': z, 'y': y}
 
 
+def sample_gaussian(mu, log_sigma):
+    epsilon = tf.random_normal(tf.shape(log_sigma), name="epsilon")
+    return mu + epsilon * tf.exp(log_sigma)  # N(mu, I * sigma**2)
+
+
 def test(mnist_flag=True):
     """Summary
 
@@ -261,7 +442,7 @@ def test(mnist_flag=True):
         xs, ys = mnist.test.images, mnist.test.labels
         num_examples = mnist.train.num_examples
         hidden_size = 2
-        ae = VAE(n_hidden=hidden_size)
+        ae = VAE_MNIST(n_hidden=hidden_size)
 
     else:
         data_and_path, fs = get_male_female_pairs('encoder_data/DAPS/small_test/cut', product=False)
@@ -466,10 +647,19 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
 
             train_source = np.array([img - train_mean_x for img in batch_xs])
             train_target = np.array([img - train_mean_y for img in batch_ys])
+
             sess.run(optimizer, feed_dict={ae['x']: train_source,
                                            ae['target']: train_target})
-        print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_source,
-                                                       ae['target']: train_target}))
+
+        print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_source, ae['target']: train_target}))
+
+        # print("INSPECTING")
+        # print(epoch_i, sess.run(ae['inspect'], feed_dict={ae['x']: train_source, ae['target']: train_target}))
+        # print("++++")
+        # print('y', sess.run(ae['y'], feed_dict={ae['x']: train_source, ae['target']: train_target}).shape)
+        # print('z_sigma', sess.run(ae['z_sigma'], feed_dict={ae['x']: train_source, ae['target']: train_target}))
+        # print('z_mean', sess.run(ae['z_mean'], feed_dict={ae['x']: train_source, ae['target']: train_target}))
+
         if epoch_i % 50 == 0 and len(validation) > 0:
             print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_xs_norm,
                                                                 ae['target']: validation_ys_norm}))
@@ -489,36 +679,35 @@ def split_dataset(dataset, test_split=.1, validation_split=.1):
 
 
 def vanilla_autoencoder(test_split=.1, validation_split=.1, autoencode=False):
-    data_and_path, fs = get_male_female_pairs('encoder_data/DAPS/small_test/cut', product=False)
+    data_and_path, fs = get_male_female_pairs('encoder_data/DAPS/small_test/cut', product=False, subsample=-1)
     print("data loaded")
-    # data_and_path = data_and_path[:2]
     print("Working with %s examples" % len(data_and_path))
     input_data = [a[0] for a in data_and_path]
     t_dim = input_data[0].shape[0]
     f_dim = input_data[0].shape[1]
-    ae, shapes = cross_autoencoder(input_shape=[None, t_dim, f_dim, 1],
-                                   n_filters=[1, 10, 10, 10],
-                                   filter_sizes=[4, 4, 4, 4], )
+    ae, shapes = VAE(input_shape=[None, t_dim, f_dim, 1],
+                     n_filters=[1, 3, 3, 3],
+                     filter_sizes=[4, 4, 4, 4], )
     sess = tf.Session()
     train, val, test = split_dataset(data_and_path, test_split, validation_split)
-    # train, val, test = data_and_path, [], []
     if autoencode:
         train_model = [[t[1], t[1], t[-1]] for t in train]
         val_model = [[t[1], t[1], t[-1]] for t in val]
         test_model = [[t[1], t[1], t[-1]] for t in test]
-        ae = train_autoencoder(ae, sess, train_model, val_model, test_model, batch_size=1, n_epochs=10)
+        ae = train_autoencoder(ae, sess, train_model, val_model, test_model, batch_size=10, n_epochs=500)
     else:
-        ae = train_autoencoder(ae, sess, train, val, test, batch_size=1, n_epochs=10)
+        ae = train_autoencoder(ae, sess, train, val, test, batch_size=10, n_epochs=10)
     print(len(train), len(val), len(test), len(data_and_path))
     # plot_spectrograms(train, sess, ae, t_dim, f_dim)
     output_examples(train, ae, sess, fs, 'ae/train')
+    output_examples(train, ae, sess, fs, 'ae/train', sources_index=1)
     output_examples(val, ae, sess, fs, 'ae/val')
     output_examples(test, ae, sess, fs, 'ae/test')
     plt.show()
 
 
-def output_examples(data, model, sess, fs, folder):
-    source = [d[0] for d in data]
+def output_examples(data, model, sess, fs, folder, sources_index=0):
+    source = [d[sources_index] for d in data]
     test_xs = np.zeros([len(source), source[0].shape[0], source[0].shape[1], 1])
     for i, a in enumerate(source):
         test_xs[i][:, :, 0] = a
@@ -527,7 +716,7 @@ def output_examples(data, model, sess, fs, folder):
 
     recon = sess.run(model['y'], feed_dict={model['x']: test_xs_norm})
     for i in range(len(data)):
-        output_filename = fft_to_audio('encoder_data/outputs/%s/a-%s_%s' % (folder, i, data[i][-1]),
+        output_filename = fft_to_audio('encoder_data/outputs/%s/a-%s_%s_%s' % (folder, i, data[i][-1], sources_index),
                                        recon[i, ..., 0].T, fs, entire_path=True)
 
 

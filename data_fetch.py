@@ -230,13 +230,15 @@ def preprocess_and_load(path, data_limit=None, used_genders=None):
 
 
 # Data format: [[input, target, paths],...]
-def get_all_audio_in_folder(path):
+def get_all_audio_in_folder(path, subsample=-1):
     source_list = []
     target_list = []
     path_list = []
     onlyfiles = [f for f in listdir(path) if
                  isfile(join(path, f)) and not f.startswith('.DS')]
-    for f in onlyfiles:
+    for i, f in enumerate(onlyfiles):
+        if subsample != -1 and i > subsample:
+            continue
         file = os.path.join(path, f)
         x, fs = librosa.load(file)
         S = utils.read_audio_spectrum(x, fs)
@@ -260,13 +262,13 @@ def get_all_audio_in_folder(path):
     return data_and_label, fs
 
 
-def get_male_female_pairs(path, product=True):
+def get_male_female_pairs(path, product=True, subsample=-1):
     folders = [f for f in listdir(path) if
                not isfile(join(path, f)) and f.endswith('male')]
     data = {}
     label_map = {}
     for fol in folders:
-        data_and_label, fs = get_all_audio_in_folder(os.path.join(path, fol))
+        data_and_label, fs = get_all_audio_in_folder(os.path.join(path, fol), subsample=subsample)
         data[fol] = data_and_label
         # formatted_label = data_and_label[-1].split('_')[-1]
 
