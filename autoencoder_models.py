@@ -6,8 +6,9 @@ Parag K. Mital, Jan 2016
 import tensorflow as tf
 import numpy as np
 import math
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
 from data_fetch import preprocess_and_load, get_all_audio_in_folder, get_male_female_pairs
 from utils import fft_to_audio
 
@@ -248,7 +249,7 @@ def test_mnist():
     # Fit all training data
     t_i = 0
     batch_size = 100
-    n_epochs = 50
+    n_epochs = 10
     n_examples = 20
     test_xs, _ = mnist.test.next_batch(n_examples)
     xs, ys = mnist.test.images, mnist.test.labels
@@ -258,12 +259,17 @@ def test_mnist():
     for epoch_i in range(n_epochs):
         print('--- Epoch', epoch_i)
         train_cost = 0
+	print("Number train examples %s" % mnist.train.num_examples)
+	print("Num batches %s" % (mnist.train.num_examples // batch_size)) 
         for batch_i in range(mnist.train.num_examples // batch_size):
+	    # print(batch_i)
             batch_xs, _ = mnist.train.next_batch(batch_size)
             train_cost += sess.run([ae['cost'], optimizer],
                                    feed_dict={ae['x']: batch_xs})[0]
-            if batch_i % 2 == 0:
-                # %%
+	    # print("training done on batch")
+            #if batch_i % 20 == 0:
+            if False:
+	        # %%
                 # Plot example reconstructions from latent layer
                 imgs = []
                 for img_i in np.linspace(-3, 3, n_examples):
@@ -278,7 +284,7 @@ def test_mnist():
                 # %%
                 # Plot example reconstructions
                 recon = sess.run(ae['y'], feed_dict={ae['x']: test_xs})
-                print(recon.shape)
+                print("reconstruction obtained")
                 for example_i in range(n_examples):
                     axs_reconstruction[0][example_i].imshow(
                         np.reshape(test_xs[example_i, :], (28, 28)),
@@ -295,6 +301,7 @@ def test_mnist():
                 # %%
                 # Plot manifold of latent layer
                 zs = sess.run(ae['z'], feed_dict={ae['x']: xs})
+		print("manifold obtained")
                 ax_image_manifold.clear()
                 ax_image_manifold.scatter(zs[:, 0], zs[:, 1],
                                           c=np.argmax(ys, 1), alpha=0.2)
