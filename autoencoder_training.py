@@ -8,7 +8,7 @@ import matplotlib
 import numpy as np
 import tensorflow as tf
 
-from autoencoder_models import VAE, VAE_MNIST
+from autoencoder_models import VAE, VAE_MNIST, cross_autoencoder
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -336,5 +336,5 @@ if __name__ == '__main__':
     # test_mnist()
     # test_data()
     vanilla_autoencoder(n_filters=[1, 3, 5, 10], filter_sizes=[4, 4, 4, 4], z_dim=50,
-                        subsample=10, batch_size=1, n_epochs=10, loss_function='ce', autoencode=True)
-    # test(mnist_flag=False)
+                        subsample=10, batch_size=1, n_epochs=10, loss_function='l2', autoencode=True)
+    # test(mnist_flag=True)

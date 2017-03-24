@@ -109,6 +109,7 @@ def cross_autoencoder(input_shape=[None, 784],
                 current_input, W_out,
                 tf.stack([tf.shape(x)[0], shape[1], shape[2], shape[3]]),
                 strides=[1, 2, 2, 1], padding='SAME'), b)
+        print(deconv.get_shape())
 
         # output_res = tf.add(deconv, outputs[layer_i])
         # output = tf.nn.relu(output_res)
@@ -195,10 +196,10 @@ def VAE(input_shape=[None, 784],
         output = tf.nn.relu(conv_layer(current_input, [filter_sizes[layer_i], filter_sizes[layer_i], n_input, n_output],
                                        -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input), n_output))
 
-        print("W at layer",layer_i,  [
-                filter_sizes[layer_i],
-                filter_sizes[layer_i],
-                n_input, n_output])
+        print("W at layer", layer_i, [
+            filter_sizes[layer_i],
+            filter_sizes[layer_i],
+            n_input, n_output])
 
         print(output.get_shape())
 
@@ -208,16 +209,20 @@ def VAE(input_shape=[None, 784],
     _, w, h, c = output.get_shape().as_list()
     output_flatten = tf.reshape(output, [-1, w * h * c])
     output_shape = output_flatten.get_shape().as_list()[-1]
+    print("output_flatten")
     print(output_flatten.get_shape())
 
     z_mean = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
     z_sigma = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
+    print("z_mean")
     print(z_mean.get_shape())
 
     z = sample_gaussian(z_mean, z_sigma)
+    print("z")
     print(z.get_shape())
 
     rec = fc_layer(z, z_dim, output_flatten.get_shape().as_list()[1], output_shape)
+    print("reconstruction")
     print(rec.get_shape())
 
     batch = tf.shape(output)[0]
@@ -225,6 +230,8 @@ def VAE(input_shape=[None, 784],
     target.extend((output.get_shape().as_list()[1:]))
 
     current_input = tf.reshape(rec, target)
+
+    print("input to decoder")
     print(current_input.get_shape())
 
     encoder.reverse()
@@ -235,11 +242,16 @@ def VAE(input_shape=[None, 784],
     # %%
     # Build the decoder
     for layer_i, shape in enumerate(shapes):
-        n_output = w_dims[-(layer_i+1)]
+        n_output = w_dims[-(layer_i + 1)]
         n_input = current_input.get_shape().as_list()[3]
-        weights_shape = [filter_sizes[-layer_i], filter_sizes[-layer_i], n_output, n_input]
-        filter_shape = [tf.shape(x)[0], shape[1], shape[2], shape[3]]
+        weights_shape = [filter_sizes[-layer_i + 1], filter_sizes[-layer_i + 1], n_output, n_input]
 
+        # [batch,
+
+        filter_shape = [tf.shape(x)[0], shape[1], shape[2], shape[3]]
+        print("filter shape")
+        print(filter_shape)
+        print(tf.stack(filter_shape))
         output = tf.nn.relu(
             deconv_layer(current_input, weights_shape, filter_shape,
                          -1.0 / math.sqrt(n_output), 1.0 / math.sqrt(n_output), n_output))
@@ -253,26 +265,33 @@ def VAE(input_shape=[None, 784],
     print(y.get_shape())
     target = tf.placeholder(tf.float32, input_shape, name='target')
     # cost function measures pixel-wise difference
+
     if loss_function == 'l2':
         rec_cost = l2_loss(y, target)
     else:
         rec_cost = cross_entropy(y, target)
 
-    vae_loss_kl = -0.5 * tf.reduce_sum(1 + z_sigma - tf.square(z_mean) - tf.exp(z_sigma), 1)
+    vae_loss_kl = -0.5 * tf.reduce_sum(1 + z_sigma - tf.square(z_mean) - tf.exp(z_sigma))
     # vae_loss_kl = tf.reduce_mean(vae_loss_kl) / n_points
-
+    print("vae")
+    print(vae_loss_kl.get_shape())
+    print("rec")
+    print(rec_cost.get_shape())
+    # cost = tf.reduce_mean(vae_loss_kl)
     cost = tf.reduce_mean(rec_cost + vae_loss_kl)
 
     global_step = tf.Variable(0, trainable=False)
     optimizer = tf.train.AdamOptimizer(0.01)
     trainable = tf.trainable_variables()
     grads_and_vars = optimizer.compute_gradients(cost, trainable)
+    grads_and_vars = [g for g in grads_and_vars if g[0] is not None]
     clipped = [(tf.clip_by_value(grad, -1., 1.), tvar) for grad, tvar in grads_and_vars]
 
     train_op = optimizer.apply_gradients(clipped, global_step=global_step, name="minimize_cost")
 
     # %%
-    return {'x': x, 'z': z, 'y': y, 'target': target, 'cost': cost, 'z_mean': z_mean, 'z_sigma': z_sigma, 'train_op': train_op}, shapes
+    return {'x': x, 'z': z, 'y': y, 'target': target, 'cost': cost, 'z_mean': z_mean, 'z_sigma': z_sigma,
+            'train_op': train_op}, shapes
 
 
 def VAE_MNIST(input_shape=[None, 784],
@@ -304,19 +323,26 @@ def VAE_MNIST(input_shape=[None, 784],
 
     dims = x.get_shape().as_list()
     n_features = dims[1]
+    print("x")
+    print(x.get_shape())
     W_enc1 = weight_variable([n_features, n_components_encoder])
-    print(W_enc1.get_shape())
     b_enc1 = bias_variable([n_components_encoder])
     h_enc1 = activation(tf.matmul(x, W_enc1) + b_enc1)
 
+    print("h_enc1")
+    print(h_enc1.get_shape())
     W_enc2 = weight_variable([n_components_encoder, n_components_encoder])
     b_enc2 = bias_variable([n_components_encoder])
     h_enc2 = activation(tf.matmul(h_enc1, W_enc2) + b_enc2)
 
+    print("h_enc2")
+    print(h_enc2.get_shape())
     W_enc3 = weight_variable([n_components_encoder, n_components_encoder])
     b_enc3 = bias_variable([n_components_encoder])
     h_enc3 = activation(tf.matmul(h_enc2, W_enc3) + b_enc3)
 
+    print("h_enc3")
+    print(h_enc3.get_shape())
     W_mu = weight_variable([n_components_encoder, n_hidden])
     b_mu = bias_variable([n_hidden])
 
@@ -325,8 +351,14 @@ def VAE_MNIST(input_shape=[None, 784],
 
     z_mu = tf.matmul(h_enc3, W_mu) + b_mu
     z_log_sigma = 0.5 * (tf.matmul(h_enc3, W_log_sigma) + b_log_sigma)
+
+    print("z_mu")
     print(z_mu.get_shape())
+
+    print("z_log_sigma")
     print(z_log_sigma.get_shape())
+    # print(z_mu.get_shape())
+    # print(z_log_sigma.get_shape())
     # %%
     # Sample from noise distribution p(eps) ~ N(0, 1)
     if debug:
@@ -338,6 +370,9 @@ def VAE_MNIST(input_shape=[None, 784],
 
     # Sample from posterior
     z = z_mu + tf.exp(z_log_sigma) * epsilon
+
+    print("z")
+    print(z.get_shape())
 
     W_dec1 = weight_variable([n_hidden, n_components_decoder])
     b_dec1 = bias_variable([n_components_decoder])
@@ -355,17 +390,30 @@ def VAE_MNIST(input_shape=[None, 784],
     b_mu_dec = bias_variable([n_features])
     y = tf.nn.sigmoid(tf.matmul(h_dec3, W_mu_dec) + b_mu_dec)
 
+    print("y")
+    print(y.get_shape())
+
+    print("x")
+    print(x.get_shape())
     # p(x|z)
     log_px_given_z = -tf.reduce_sum(
         x * tf.log(y + 1e-10) +
         (1 - x) * tf.log(1 - y + 1e-10), 1)
+
+    print("ce_error")
+    print(log_px_given_z.get_shape())
 
     # d_kl(q(z|x)||p(z))
     # Appendix B: 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
     kl_div = -0.5 * tf.reduce_sum(
         1.0 + 2.0 * z_log_sigma - tf.square(z_mu) - tf.exp(2.0 * z_log_sigma),
         1)
+    print("kl_div")
+    print(kl_div.get_shape())
+
     loss = tf.reduce_mean(log_px_given_z + kl_div)
+    print("loss")
+    print(loss.get_shape())
 
     return {'cost': loss, 'x': x, 'z': z, 'y': y}
 
@@ -399,30 +447,30 @@ def conv_layer(prev_layer, shape, min_val, max_val, n_output):
     weights = tf.Variable(tf.random_uniform(shape, min_val, max_val))
     b = tf.Variable(tf.zeros([n_output]))
 
-    # encoder.append(W_out)
     return tf.add(tf.nn.conv2d(
         prev_layer, weights, strides=[1, 2, 2, 1], padding='SAME'), b)
 
 
 def deconv_layer(prev_layer, shape, filter_shape, min_val, max_val, n_output):
-    # W_out = tf.Variable(
-    #     tf.random_uniform([
-    #         filter_sizes[-layer_i],
-    #         filter_sizes[-layer_i],
-    #         n_input, n_output],
-    #         -1.0 / math.sqrt(n_input),
-    #         1.0 / math.sqrt(n_input)))
-    print("sh", shape)
     W_out = tf.Variable(tf.random_uniform(shape, min_val, max_val))
-    print("new_w", W_out.get_shape())
-    # b = tf.Variable(tf.zeros([W_out.get_shape().as_list()[2]]))
+    # [height, width, output_channels, in_channels]
+    # print("W")
+    # print(W_out.get_shape().as_list())
+    # [batch, height, width, in_channels]
+    # print ("In")
+    # print(prev_layer.get_shape())
     b = tf.Variable(tf.zeros([n_output]))
-    return tf.add(
-        tf.nn.conv2d_transpose(
-            prev_layer, W_out,
-            # tf.stack([tf.shape(x)[0], shape[1], shape[2], shape[3]]),
-            tf.stack(filter_shape),
-            strides=[1, 2, 2, 1], padding='SAME'), b)
+    # print"bias"
+    # print(b.get_shape())
+    # print("output_shape")
+    # print(tf.stack(filter_shape).get_shape())
+    conv_2d = tf.nn.conv2d_transpose(
+        value=prev_layer, filter=W_out,
+        output_shape=tf.stack(filter_shape),
+        strides=[1, 2, 2, 1], padding='SAME')
+    # print("conv")
+    # print(conv_2d.get_shape())
+    return tf.add(conv_2d, b)
 
 
 def fc_layer(prev_layer, in_dim, out_dim, output_shape):
@@ -450,4 +498,4 @@ def cross_entropy(y, target, offset=1e-7):
 
 def l2_loss(y, target, offset=1e-7):
     obs_ = tf.clip_by_value(y, offset, 1 - offset)
-    return tf.reduce_sum(tf.square(obs_ - target), 1)
+    return tf.reduce_sum(tf.square(obs_ - target))
