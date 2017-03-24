@@ -236,6 +236,7 @@ def get_all_audio_in_folder(path, subsample=-1):
     path_list = []
     onlyfiles = [f for f in listdir(path) if
                  isfile(join(path, f)) and not f.startswith('.DS')]
+    onlyfiles = sorted(onlyfiles)
     for i, f in enumerate(onlyfiles):
         if subsample != -1 and i > subsample:
             continue

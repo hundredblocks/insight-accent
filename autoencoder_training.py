@@ -257,13 +257,14 @@ def split_dataset(dataset, test_split=.1, validation_split=.1):
 
 
 def vanilla_autoencoder(n_filters=None, filter_sizes=None,
-                        z_dim=50, test_split=.1,
+                        z_dim=50, subsample=-1, batch_size=10,
+                        n_epochs=100, test_split=.1,
                         validation_split=.1, autoencode=False):
     if not n_filters:
         n_filters = [1, 3, 3, 3]
     if not filter_sizes:
         filter_sizes = [4, 4, 4, 4]
-    data_and_path, fs = get_male_female_pairs('encoder_data/DAPS/small_test/cut', product=False, subsample=10)
+    data_and_path, fs = get_male_female_pairs('encoder_data/DAPS/small_test/cut', product=False, subsample=subsample)
     print("data loaded")
     print("Working with %s examples" % len(data_and_path))
     input_data = [a[0] for a in data_and_path]
@@ -278,9 +279,9 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
         train_model = [[t[1], t[1], t[-1]] for t in train]
         val_model = [[t[1], t[1], t[-1]] for t in val]
         test_model = [[t[1], t[1], t[-1]] for t in test]
-        ae = train_autoencoder(ae, sess, train_model, val_model, test_model, batch_size=2, n_epochs=10)
+        ae = train_autoencoder(ae, sess, train_model, val_model, test_model, batch_size=batch_size, n_epochs=n_epochs)
     else:
-        ae = train_autoencoder(ae, sess, train, val, test, batch_size=10, n_epochs=10)
+        ae = train_autoencoder(ae, sess, train, val, test, batch_size=batch_size, n_epochs=n_epochs)
     print(len(train), len(val), len(test), len(data_and_path))
     # plot_spectrograms(train, sess, ae, t_dim, f_dim)
     output_examples(train, ae, sess, fs, 'ae/train')
@@ -340,5 +341,6 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 if __name__ == '__main__':
     # test_mnist()
     # test_data()
-    vanilla_autoencoder(n_filters=[1, 3, 5, 10], filter_sizes=[4, 4, 4, 4], z_dim=50, autoencode=True)
+    vanilla_autoencoder(n_filters=[1, 3, 5, 10], filter_sizes=[4, 4, 4, 4], z_dim=50,
+                        subsample=10, batch_size=1, n_epochs=10, autoencode=True)
     # test(mnist_flag=False)

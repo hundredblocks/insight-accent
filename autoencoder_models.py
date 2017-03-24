@@ -184,8 +184,10 @@ def VAE(input_shape=[None, 784],
     encoder = []
     shapes = []
     outputs = []
+    w_dims = []
     for layer_i, n_output in enumerate(n_filters[1:]):
         n_input = current_input.get_shape().as_list()[3]
+        w_dims.append(n_input)
         shapes.append(current_input.get_shape().as_list())
 
         outputs.append(current_input)
@@ -200,8 +202,11 @@ def VAE(input_shape=[None, 784],
                 n_input, n_output],
                 -1.0 / math.sqrt(n_input),
                 1.0 / math.sqrt(n_input)))
-
         encoder.append(W_out)
+        print("W at layer",layer_i,  [
+                filter_sizes[layer_i],
+                filter_sizes[layer_i],
+                n_input, n_output])
 
         print(output.get_shape())
 
@@ -214,14 +219,13 @@ def VAE(input_shape=[None, 784],
     print(output_flatten.get_shape())
 
     z_mean = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
-
     z_sigma = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
+    print(z_mean.get_shape())
 
     z = sample_gaussian(z_mean, z_sigma)
     print(z.get_shape())
 
     rec = fc_layer(z, z_dim, output_flatten.get_shape().as_list()[1], output_shape)
-
     print(rec.get_shape())
 
     batch = tf.shape(output)[0]
@@ -239,22 +243,15 @@ def VAE(input_shape=[None, 784],
     # %%
     # Build the decoder
     for layer_i, shape in enumerate(shapes):
-        print("shapes", shape)
-        # TODO Different weights
-        W_out = encoder[layer_i]
-        print("wout", W_out.get_shape())
-        b = tf.Variable(tf.zeros([W_out.get_shape().as_list()[2]]))
+        n_output = w_dims[-(layer_i+1)]
+        n_input = current_input.get_shape().as_list()[3]
+        weights_shape = [filter_sizes[-layer_i], filter_sizes[-layer_i], n_output, n_input]
+        filter_shape = [tf.shape(x)[0], shape[1], shape[2], shape[3]]
 
-        deconv = tf.add(
-            tf.nn.conv2d_transpose(
-                current_input, W_out,
-                tf.stack([tf.shape(x)[0], shape[1], shape[2], shape[3]]),
-                strides=[1, 2, 2, 1], padding='SAME'), b)
+        output = tf.nn.relu(
+            deconv_layer(current_input, weights_shape, filter_shape,
+                         -1.0 / math.sqrt(n_output), 1.0 / math.sqrt(n_output), n_output))
 
-        # output_res = tf.add(deconv, outputs[layer_i])
-        # output = tf.nn.relu(output_res)
-
-        output = tf.nn.relu(deconv)
         current_input = output
         print(output.get_shape())
 
@@ -405,6 +402,27 @@ def conv_layer(prev_layer, shape, min_val, max_val, n_output):
     # encoder.append(W_out)
     return tf.add(tf.nn.conv2d(
         prev_layer, weights, strides=[1, 2, 2, 1], padding='SAME'), b)
+
+
+def deconv_layer(prev_layer, shape, filter_shape, min_val, max_val, n_output):
+    # W_out = tf.Variable(
+    #     tf.random_uniform([
+    #         filter_sizes[-layer_i],
+    #         filter_sizes[-layer_i],
+    #         n_input, n_output],
+    #         -1.0 / math.sqrt(n_input),
+    #         1.0 / math.sqrt(n_input)))
+    print("sh", shape)
+    W_out = tf.Variable(tf.random_uniform(shape, min_val, max_val))
+    print("new_w", W_out.get_shape())
+    # b = tf.Variable(tf.zeros([W_out.get_shape().as_list()[2]]))
+    b = tf.Variable(tf.zeros([n_output]))
+    return tf.add(
+        tf.nn.conv2d_transpose(
+            prev_layer, W_out,
+            # tf.stack([tf.shape(x)[0], shape[1], shape[2], shape[3]]),
+            tf.stack(filter_shape),
+            strides=[1, 2, 2, 1], padding='SAME'), b)
 
 
 def fc_layer(prev_layer, in_dim, out_dim, output_shape):
