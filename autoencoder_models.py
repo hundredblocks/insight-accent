@@ -195,14 +195,6 @@ def VAE(input_shape=[None, 784],
         output = tf.nn.relu(conv_layer(current_input, [filter_sizes[layer_i], filter_sizes[layer_i], n_input, n_output],
                                        -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input), n_output))
 
-        W_out = tf.Variable(
-            tf.random_uniform([
-                filter_sizes[layer_i],
-                filter_sizes[layer_i],
-                n_input, n_output],
-                -1.0 / math.sqrt(n_input),
-                1.0 / math.sqrt(n_input)))
-        encoder.append(W_out)
         print("W at layer",layer_i,  [
                 filter_sizes[layer_i],
                 filter_sizes[layer_i],
@@ -271,8 +263,16 @@ def VAE(input_shape=[None, 784],
 
     cost = rec_cost + vae_loss_kl
 
+    global_step = tf.Variable(0, trainable=False)
+    optimizer = tf.train.AdamOptimizer(0.01)
+    trainable = tf.trainable_variables()
+    grads_and_vars = optimizer.compute_gradients(cost, trainable)
+    clipped = [(tf.clip_by_value(grad, -1., 1.), tvar) for grad, tvar in grads_and_vars]
+
+    train_op = optimizer.apply_gradients(clipped, global_step=global_step, name="minimize_cost")
+
     # %%
-    return {'x': x, 'z': z, 'y': y, 'target': target, 'cost': cost, 'z_mean': z_mean, 'z_sigma': z_sigma}, shapes
+    return {'x': x, 'z': z, 'y': y, 'target': target, 'cost': cost, 'z_mean': z_mean, 'z_sigma': z_sigma, 'train_op': train_op}, shapes
 
 
 def VAE_MNIST(input_shape=[None, 784],

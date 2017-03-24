@@ -198,7 +198,7 @@ def get_normalized_x_y(validation):
 
 
 def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, learning_rate=0.01):
-    optimizer = tf.train.AdamOptimizer(learning_rate).minimize(ae['cost'])
+    # optimizer = tf.train.AdamOptimizer(learning_rate).minimize(ae['cost'])
 
     train_mean_x = np.mean([a[0] for a in train])
     train_mean_y = np.mean([a[1] for a in train])
@@ -207,6 +207,7 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
     validation_xs_norm, validation_ys_norm = get_normalized_x_y(validation)
     test_xs_norm, test_ys_norm = get_normalized_x_y(test)
     sess.run(tf.global_variables_initializer())
+
     saver = tf.train.Saver(tf.all_variables(), max_to_keep=None)
     for epoch_i in range(n_epochs):
         perms = np.random.permutation(training_set)
@@ -226,8 +227,8 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
             train_source = np.array([img - train_mean_x for img in batch_xs])
             train_target = np.array([img - train_mean_y for img in batch_ys])
 
-            sess.run(optimizer, feed_dict={ae['x']: train_source,
-                                           ae['target']: train_target})
+            # sess.run(optimizer, feed_dict={ae['x']: train_source,ae['target']: train_target})
+            sess.run([ae['train_op']], feed_dict={ae['x']: train_source,ae['target']: train_target})
 
         print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_source, ae['target']: train_target}))
 
