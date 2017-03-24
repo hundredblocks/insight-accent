@@ -26,25 +26,25 @@ def slice(infile, outfilename, start_ms, end_ms):
     out.writeframes(infile.readframes(length))
 
 
-def multislice(infile, outfilepath, outfilename, second_cut_size=3, second_step_size=1):
+def multislice(infile, outfilepath, outfilename, ms_cut_size=3000, ms_step_size=1):
     # width = infile.getsampwidth()
     rate = infile.getframerate()
     nframes = infile.getnframes()
     total_length_seconds = nframes / float(rate)
+    total_length_ms = total_length_seconds * 1000
 
-    if total_length_seconds < second_cut_size:
+    if total_length_ms < ms_cut_size:
         return
-    usable_seconds = int(total_length_seconds // 1)
 
-    num_cuts = int(1 + (usable_seconds - second_cut_size) // second_step_size)
+    num_cuts = int(1+(total_length_ms-ms_cut_size) // ms_step_size)
 
     for i in range(num_cuts):
-        start_s = i * second_step_size
-        end_s = i * second_step_size + second_cut_size
+        start_ms = i * ms_step_size
+        end_ms = i * ms_step_size + ms_cut_size
         name_and_extension = outfilename.split('.')
         name_str = "_".join(name_and_extension[:-1])
-        cut_outname = '%s_%s-%s.%s' % (name_str, start_s, end_s, name_and_extension[-1])
-        slice(infile, os.path.join(outfilepath, cut_outname), start_ms=start_s * 1000, end_ms=end_s * 1000)
+        cut_outname = '%s_%s-%s.%s' % (name_str, start_ms, end_ms, name_and_extension[-1])
+        slice(infile, os.path.join(outfilepath, cut_outname), start_ms=start_ms, end_ms=end_ms)
 
 
 # Reads wav file and produces spectrum

@@ -232,13 +232,6 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
 
         print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_source, ae['target']: train_target}))
 
-        # print("INSPECTING")
-        # print(epoch_i, sess.run(ae['inspect'], feed_dict={ae['x']: train_source, ae['target']: train_target}))
-        # print("++++")
-        # print('y', sess.run(ae['y'], feed_dict={ae['x']: train_source, ae['target']: train_target}).shape)
-        # print('z_sigma', sess.run(ae['z_sigma'], feed_dict={ae['x']: train_source, ae['target']: train_target}))
-        # print('z_mean', sess.run(ae['z_mean'], feed_dict={ae['x']: train_source, ae['target']: train_target}))
-
         if epoch_i % 50 == 0 and len(validation) > 0:
             print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_xs_norm,
                                                                 ae['target']: validation_ys_norm}))
@@ -259,7 +252,7 @@ def split_dataset(dataset, test_split=.1, validation_split=.1):
 
 def vanilla_autoencoder(n_filters=None, filter_sizes=None,
                         z_dim=50, subsample=-1, batch_size=10,
-                        n_epochs=100, test_split=.1,
+                        n_epochs=100, loss_function='l2', test_split=.1,
                         validation_split=.1, autoencode=False):
     if not n_filters:
         n_filters = [1, 3, 3, 3]
@@ -273,7 +266,7 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
     f_dim = input_data[0].shape[1]
     ae, shapes = VAE(input_shape=[None, t_dim, f_dim, 1],
                      n_filters=n_filters,
-                     filter_sizes=filter_sizes, z_dim=z_dim)
+                     filter_sizes=filter_sizes, z_dim=z_dim, loss_function=loss_function)
     sess = tf.Session()
     train, val, test = split_dataset(data_and_path, test_split, validation_split)
     if autoencode:
@@ -343,5 +336,5 @@ if __name__ == '__main__':
     # test_mnist()
     # test_data()
     vanilla_autoencoder(n_filters=[1, 3, 5, 10], filter_sizes=[4, 4, 4, 4], z_dim=50,
-                        subsample=10, batch_size=1, n_epochs=10, autoencode=True)
+                        subsample=10, batch_size=1, n_epochs=10, loss_function='ce', autoencode=True)
     # test(mnist_flag=False)

@@ -259,9 +259,9 @@ def VAE(input_shape=[None, 784],
         rec_cost = cross_entropy(y, target)
 
     vae_loss_kl = -0.5 * tf.reduce_sum(1 + z_sigma - tf.square(z_mean) - tf.exp(z_sigma), 1)
-    vae_loss_kl = tf.reduce_mean(vae_loss_kl) / n_points
+    # vae_loss_kl = tf.reduce_mean(vae_loss_kl) / n_points
 
-    cost = rec_cost + vae_loss_kl
+    cost = tf.reduce_mean(rec_cost + vae_loss_kl)
 
     global_step = tf.Variable(0, trainable=False)
     optimizer = tf.train.AdamOptimizer(0.01)
@@ -450,4 +450,4 @@ def cross_entropy(y, target, offset=1e-7):
 
 def l2_loss(y, target, offset=1e-7):
     obs_ = tf.clip_by_value(y, offset, 1 - offset)
-    return tf.reduce_mean(tf.square(obs_ - target))
+    return tf.reduce_sum(tf.square(obs_ - target), 1)

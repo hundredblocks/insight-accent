@@ -203,10 +203,10 @@ def cut_all(base_dir):
             filepath = os.path.join(wav_path, filename)
             infile = wave.open(filepath)
             utils.multislice(infile, out_path, filename,
-                             second_cut_size=3, second_step_size=1)
+                             ms_cut_size=3000, ms_step_size=1000)
 
 
-def cut_daps(path):
+def cut_daps(path, ms_cut_size=3000, ms_step_size=1000, out='cut'):
     for root, dirs, files in os.walk(path):
         for filename in files:
             if not filename.endswith('wav'):
@@ -214,9 +214,9 @@ def cut_daps(path):
             filepath = os.path.join(root, filename)
             print(filepath)
             infile = wave.open(filepath)
-            out_path = os.path.join(root, 'cut')
+            out_path = os.path.join(root, out)
             utils.multislice(infile, out_path, filename,
-                             second_cut_size=3, second_step_size=1)
+                             ms_cut_size=ms_cut_size, ms_step_size=ms_step_size)
 
 
 # used_genders is an array
