@@ -268,6 +268,8 @@ def VAE(input_shape=[None, 784],
 
     if loss_function == 'l2':
         rec_cost = l2_loss(y, target)
+    elif loss_function == 'l1':
+        rec_cost = l1_loss(y, target)
     else:
         rec_cost = cross_entropy(y, target)
 
@@ -499,3 +501,8 @@ def cross_entropy(y, target, offset=1e-7):
 def l2_loss(y, target, offset=1e-7):
     obs_ = tf.clip_by_value(y, offset, 1 - offset)
     return tf.reduce_sum(tf.square(obs_ - target))
+
+
+def l1_loss(y, target, offset=1e-7):
+    obs_ = tf.clip_by_value(y, offset, 1 - offset)
+    return tf.reduce_sum(tf.abs(obs_ - target))
