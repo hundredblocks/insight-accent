@@ -84,8 +84,10 @@ def test(mnist_flag=True):
             else:
                 batch_xs = perms[batch_i * batch_size:(batch_i + 1) * batch_size, :]
 
-            train_cost += sess.run([ae['cost'], optimizer],
-                                   feed_dict={ae['x']: batch_xs})[0]
+            curr_cost, kl, dist, _ = sess.run([ae['cost'], ae['kl_div'], ae['log_px_given_z'], optimizer],
+                                              feed_dict={ae['x']: batch_xs})
+            train_cost += curr_cost
+            print(curr_cost, np.mean(kl), np.sum(kl), np.mean(dist), np.sum(dist))
         # %%
         # Plot example reconstructions from walking the latent layer
         imgs = []
@@ -204,6 +206,7 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
     train_mean_y = np.mean([a[1] for a in train])
 
     training_set = np.array(train)
+    train_xs_norm, train_ys_norm = get_normalized_x_y(train)
     validation_xs_norm, validation_ys_norm = get_normalized_x_y(validation)
     test_xs_norm, test_ys_norm = get_normalized_x_y(test)
     sess.run(tf.global_variables_initializer())
@@ -226,11 +229,16 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
 
             train_source = np.array([img - train_mean_x for img in batch_xs])
             train_target = np.array([img - train_mean_y for img in batch_ys])
+            # print(train_source.min(), train_target.max())
 
             # sess.run(optimizer, feed_dict={ae['x']: train_source,ae['target']: train_target})
-            sess.run([ae['train_op']], feed_dict={ae['x']: train_source,ae['target']: train_target})
+            sess.run(ae['train_op'],
+                     feed_dict={ae['x']: train_source, ae['target']: train_target})
 
-        print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_source, ae['target']: train_target}))
+        cost, rec_cost, val_cost = sess.run([ae['cost'], ae['rec_cost'], ae['vae_loss_kl']],
+                                            feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm})
+
+        print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm}))
 
         if epoch_i % 50 == 0 and len(validation) > 0:
             print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_xs_norm,
@@ -333,8 +341,7 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 
 # %%
 if __name__ == '__main__':
-    # test_mnist()
     # test_data()
-    vanilla_autoencoder(n_filters=[1, 3, 5, 10], filter_sizes=[4, 4, 4, 4], z_dim=50,
-                        subsample=10, batch_size=1, n_epochs=10, loss_function='l2', autoencode=True)
+    vanilla_autoencoder(n_filters=[1, 4, 4, 4], filter_sizes=[4, 4, 4, 4], z_dim=50,
+                        subsample=20, batch_size=4, n_epochs=100, loss_function='l2', autoencode=True)
     # test(mnist_flag=True)

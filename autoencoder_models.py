@@ -273,7 +273,7 @@ def VAE(input_shape=[None, 784],
     else:
         rec_cost = cross_entropy(y, target)
 
-    vae_loss_kl = -0.5 * tf.reduce_sum(1 + z_sigma - tf.square(z_mean) - tf.exp(z_sigma))
+    vae_loss_kl = kl_div(z_mean, z_sigma)
     # vae_loss_kl = tf.reduce_mean(vae_loss_kl) / n_points
     print("vae")
     print(vae_loss_kl.get_shape())
@@ -292,7 +292,8 @@ def VAE(input_shape=[None, 784],
     train_op = optimizer.apply_gradients(clipped, global_step=global_step, name="minimize_cost")
 
     # %%
-    return {'x': x, 'z': z, 'y': y, 'target': target, 'cost': cost, 'z_mean': z_mean, 'z_sigma': z_sigma,
+    return {'x': x, 'z': z, 'y': y, 'target': target, 'cost': cost, 'rec_cost': rec_cost, 'vae_loss_kl': vae_loss_kl,
+            'z_mean': z_mean, 'z_sigma': z_sigma,
             'train_op': train_op}, shapes
 
 
@@ -417,7 +418,7 @@ def VAE_MNIST(input_shape=[None, 784],
     print("loss")
     print(loss.get_shape())
 
-    return {'cost': loss, 'x': x, 'z': z, 'y': y}
+    return {'cost': loss, 'kl_div': kl_div, 'log_px_given_z': log_px_given_z, 'x': x, 'z': z, 'y': y}
 
 
 def sample_gaussian(mu, log_sigma):
@@ -495,14 +496,21 @@ def bias_variable(shape):
 
 def cross_entropy(y, target, offset=1e-7):
     obs_ = tf.clip_by_value(y, offset, 1 - offset)
-    return -tf.reduce_sum(target * tf.log(obs_) + (1 - target) * tf.log(1 - obs_))
+    return -tf.reduce_sum(target * tf.log(obs_) + (1 - target) * tf.log(1 - obs_), [1, 2])
 
 
 def l2_loss(y, target, offset=1e-7):
     obs_ = tf.clip_by_value(y, offset, 1 - offset)
-    return tf.reduce_sum(tf.square(obs_ - target))
+    return tf.reduce_sum(tf.square(obs_ - target), [1, 2])
 
 
 def l1_loss(y, target, offset=1e-7):
     obs_ = tf.clip_by_value(y, offset, 1 - offset)
     return tf.reduce_sum(tf.abs(obs_ - target))
+
+
+def kl_div(z_mean, z_sigma, offset=1e-7):
+    z_sigma_ = tf.clip_by_value(z_sigma, offset, 1 - offset)
+    z_mean_ = tf.clip_by_value(z_mean, offset, 1 - offset)
+    vae_loss_kl = -0.5 * tf.reduce_sum(1 + z_sigma_ - tf.square(z_mean_) - tf.exp(z_sigma_), 1)
+    return vae_loss_kl
