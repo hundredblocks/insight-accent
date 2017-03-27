@@ -272,8 +272,8 @@ def VAE(input_shape=[None, 784],
         rec_cost = l1_loss(y, target)
     else:
         rec_cost = cross_entropy(y, target)
-
-    vae_loss_kl = kl_div(z_mean, z_sigma)
+    ampl_factor = 1000
+    vae_loss_kl = ampl_factor*kl_div(z_mean, z_sigma)
     # vae_loss_kl = tf.reduce_mean(vae_loss_kl) / n_points
     print("vae")
     print(vae_loss_kl.get_shape())
@@ -456,23 +456,11 @@ def conv_layer(prev_layer, shape, min_val, max_val, n_output):
 
 def deconv_layer(prev_layer, shape, filter_shape, min_val, max_val, n_output):
     W_out = tf.Variable(tf.random_uniform(shape, min_val, max_val))
-    # [height, width, output_channels, in_channels]
-    # print("W")
-    # print(W_out.get_shape().as_list())
-    # [batch, height, width, in_channels]
-    # print ("In")
-    # print(prev_layer.get_shape())
     b = tf.Variable(tf.zeros([n_output]))
-    # print"bias"
-    # print(b.get_shape())
-    # print("output_shape")
-    # print(tf.stack(filter_shape).get_shape())
     conv_2d = tf.nn.conv2d_transpose(
         value=prev_layer, filter=W_out,
         output_shape=tf.stack(filter_shape),
         strides=[1, 2, 2, 1], padding='SAME')
-    # print("conv")
-    # print(conv_2d.get_shape())
     return tf.add(conv_2d, b)
 
 
@@ -495,22 +483,22 @@ def bias_variable(shape):
 
 
 def cross_entropy(y, target, offset=1e-7):
-    obs_ = tf.clip_by_value(y, offset, 1 - offset)
+    obs_ = tf.clip_by_value(y, offset, 5 - offset)
     return -tf.reduce_sum(target * tf.log(obs_) + (1 - target) * tf.log(1 - obs_), [1, 2])
 
 
 def l2_loss(y, target, offset=1e-7):
-    obs_ = tf.clip_by_value(y, offset, 1 - offset)
+    obs_ = tf.clip_by_value(y, offset, 5 - offset)
     return tf.reduce_sum(tf.square(obs_ - target), [1, 2])
 
 
 def l1_loss(y, target, offset=1e-7):
-    obs_ = tf.clip_by_value(y, offset, 1 - offset)
-    return tf.reduce_sum(tf.abs(obs_ - target))
+    obs_ = tf.clip_by_value(y, offset, 5 - offset)
+    return tf.reduce_sum(tf.abs(obs_ - target), [1, 2])
 
 
 def kl_div(z_mean, z_sigma, offset=1e-7):
-    z_sigma_ = tf.clip_by_value(z_sigma, offset, 1 - offset)
-    z_mean_ = tf.clip_by_value(z_mean, offset, 1 - offset)
+    z_sigma_ = tf.clip_by_value(z_sigma, offset, 5 - offset)
+    z_mean_ = tf.clip_by_value(z_mean, offset, 5 - offset)
     vae_loss_kl = -0.5 * tf.reduce_sum(1 + z_sigma_ - tf.square(z_mean_) - tf.exp(z_sigma_), 1)
     return vae_loss_kl

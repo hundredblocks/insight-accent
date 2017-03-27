@@ -229,14 +229,12 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
 
             train_source = np.array([img - train_mean_x for img in batch_xs])
             train_target = np.array([img - train_mean_y for img in batch_ys])
-            # print(train_source.min(), train_target.max())
-
             # sess.run(optimizer, feed_dict={ae['x']: train_source,ae['target']: train_target})
             sess.run(ae['train_op'],
                      feed_dict={ae['x']: train_source, ae['target']: train_target})
 
         cost, rec_cost, kl_cost = sess.run([ae['cost'], ae['rec_cost'], ae['vae_loss_kl']],
-                                            feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm})
+                                           feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm})
 
         print(cost, np.mean(rec_cost), np.mean(kl_cost))
         print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm}))
@@ -353,5 +351,5 @@ if __name__ == '__main__':
     # test_data()
     vanilla_autoencoder(n_filters=[1, 4, 4, 4], filter_sizes=[4, 4, 4, 4],
                         z_dim=50, subsample=20, batch_size=4, n_epochs=20,
-                        loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/small_test/cut_1000_step_100')
+                        loss_function='l1', autoencode=True, data_path='encoder_data/DAPS/small_test/cut_1000_step_100')
     # test(mnist_flag=True)
