@@ -235,9 +235,10 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
             sess.run(ae['train_op'],
                      feed_dict={ae['x']: train_source, ae['target']: train_target})
 
-        cost, rec_cost, val_cost = sess.run([ae['cost'], ae['rec_cost'], ae['vae_loss_kl']],
+        cost, rec_cost, kl_cost = sess.run([ae['cost'], ae['rec_cost'], ae['vae_loss_kl']],
                                             feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm})
 
+        print(cost, np.mean(rec_cost), np.mean(kl_cost))
         print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm}))
 
         if epoch_i % 10 == 0 and len(validation) > 0:
@@ -266,7 +267,7 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
         n_filters = [1, 3, 3, 3]
     if not filter_sizes:
         filter_sizes = [4, 4, 4, 4]
-    data_and_path, fs = get_male_female_pairs('encoder_data/DAPS/small_test/cut', product=False, subsample=subsample)
+    data_and_path, fs = get_male_female_pairs(data_path, product=False, subsample=subsample)
     print("data loaded")
     print("Working with %s examples" % len(data_and_path))
     input_data = [a[0] for a in data_and_path]
@@ -286,10 +287,18 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
         ae = train_autoencoder(ae, sess, train, val, test, batch_size=batch_size, n_epochs=n_epochs)
     print(len(train), len(val), len(test), len(data_and_path))
     # plot_spectrograms(train, sess, ae, t_dim, f_dim)
-    output_examples(train, ae, sess, fs, 'ae/train')
-    output_examples(train, ae, sess, fs, 'ae/train', sources_index=1)
-    output_examples(val, ae, sess, fs, 'ae/val')
-    output_examples(test, ae, sess, fs, 'ae/test')
+
+    to_plot_train = np.random.permutation(train)[:min(len(train), 15)]
+    to_plot_val = np.random.permutation(val)[:min(len(val), 15)]
+    to_plot_test = np.random.permutation(test)[:min(len(test), 15)]
+    output_examples(to_plot_train, ae, sess, fs, 'ae/train')
+    output_examples(to_plot_train, ae, sess, fs, 'ae/train', sources_index=1)
+
+    output_examples(to_plot_val, ae, sess, fs, 'ae/val')
+    output_examples(to_plot_val, ae, sess, fs, 'ae/val', sources_index=1)
+
+    output_examples(to_plot_test, ae, sess, fs, 'ae/test')
+    output_examples(to_plot_test, ae, sess, fs, 'ae/test', sources_index=1)
     plt.show()
 
 
@@ -343,6 +352,6 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 if __name__ == '__main__':
     # test_data()
     vanilla_autoencoder(n_filters=[1, 4, 4, 4], filter_sizes=[4, 4, 4, 4],
-                        z_dim=50, subsample=20, batch_size=4, n_epochs=200,
-                        loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/small_test/cut')
+                        z_dim=50, subsample=20, batch_size=4, n_epochs=20,
+                        loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/small_test/cut_1000_step_100')
     # test(mnist_flag=True)
