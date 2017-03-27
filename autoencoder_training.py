@@ -240,7 +240,7 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
 
         print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm}))
 
-        if epoch_i % 50 == 0 and len(validation) > 0:
+        if epoch_i % 10 == 0 and len(validation) > 0:
             print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_xs_norm,
                                                                 ae['target']: validation_ys_norm}))
     if len(test) > 0:
@@ -261,7 +261,7 @@ def split_dataset(dataset, test_split=.1, validation_split=.1):
 def vanilla_autoencoder(n_filters=None, filter_sizes=None,
                         z_dim=50, subsample=-1, batch_size=10,
                         n_epochs=100, loss_function='l2', test_split=.1,
-                        validation_split=.1, autoencode=False):
+                        validation_split=.1, autoencode=False, data_path='encoder_data/DAPS/small_test/cut'):
     if not n_filters:
         n_filters = [1, 3, 3, 3]
     if not filter_sizes:
@@ -344,5 +344,5 @@ if __name__ == '__main__':
     # test_data()
     vanilla_autoencoder(n_filters=[1, 4, 4, 4], filter_sizes=[4, 4, 4, 4],
                         z_dim=50, subsample=20, batch_size=4, n_epochs=200,
-                        loss_function='l2', autoencode=True)
+                        loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/small_test/cut')
     # test(mnist_flag=True)
