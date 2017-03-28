@@ -409,6 +409,6 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 if __name__ == '__main__':
     # test_data()
     vanilla_autoencoder(n_filters=[1, 4, 4, 4], filter_sizes=[4, 4, 4, 4],
-                        z_dim=50, subsample=20, batch_size=4, n_epochs=50,
+                        z_dim=50, subsample=20, batch_size=4, n_epochs=100,
                         loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/f3_m4/cut_1000_step_100')
     # test(mnist_flag=True)

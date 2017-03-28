@@ -276,7 +276,7 @@ def VAE(input_shape=[None, 784],
     else:
         print('cross entropy loss function chosen')
         rec_cost = cross_entropy(y, target)
-    ampl_factor = 1000
+    ampl_factor = 1
     vae_loss_kl = ampl_factor * kl_div(z_mean, z_sigma)
     # vae_loss_kl = tf.reduce_mean(vae_loss_kl) / n_points
     print("vae")
@@ -474,21 +474,21 @@ def fc_layer(prev_layer, in_dim, out_dim, output_shape):
 
 def cross_entropy(y, target, offset=1e-7):
     obs_ = tf.clip_by_value(y, offset, 5 - offset)
-    return -tf.reduce_sum(target * tf.log(obs_) + (1 - target) * tf.log(1 - obs_), [1, 2])
+    return -tf.reduce_mean(target * tf.log(obs_) + (1 - target) * tf.log(1 - obs_), [1, 2])
 
 
 def l2_loss(y, target, offset=1e-7):
     obs_ = tf.clip_by_value(y, offset, 5 - offset)
-    return tf.reduce_sum(tf.square(obs_ - target), [1, 2])
+    return tf.reduce_mean(tf.square(obs_ - target), [1, 2])
 
 
 def l1_loss(y, target, offset=1e-7):
     obs_ = tf.clip_by_value(y, offset, 5 - offset)
-    return tf.reduce_sum(tf.abs(obs_ - target), [1, 2])
+    return tf.reduce_mean(tf.abs(obs_ - target), [1, 2])
 
 
 def kl_div(z_mean, z_sigma, offset=1e-7):
     z_sigma_ = tf.clip_by_value(z_sigma, offset, 5 - offset)
     z_mean_ = tf.clip_by_value(z_mean, offset, 5 - offset)
-    vae_loss_kl = -0.5 * tf.reduce_sum(1 + z_sigma_ - tf.square(z_mean_) - tf.exp(z_sigma_), 1)
+    vae_loss_kl = -0.5 * tf.reduce_mean(1 + z_sigma_ - tf.square(z_mean_) - tf.exp(z_sigma_), 1)
     return vae_loss_kl

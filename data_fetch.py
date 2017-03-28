@@ -5,6 +5,7 @@ from shutil import copyfile
 
 import librosa
 import itertools
+import matplotlib
 
 from bs4 import BeautifulSoup
 import urllib
@@ -294,9 +295,18 @@ def get_all_autoencoder_audio_in_folder(path, subsample=-1, random=False):
     return data_and_label, fs
 
 
-# def get_all_audio(path, subsample=-1):
-#     folders = [f for f in listdir(path) if
-#                not isfile(join(path, f)) and f.endswith('male')]
+def save_spectrogram_array(out_path, spectrogram):
+    with open(out_path, 'w+') as outfile:
+        np.save(outfile, spectrogram)
+
+
+def load_spectrogram_array(in_path):
+    with open(in_path, 'r') as outfile:
+        return np.load(outfile)
+
+
+# def sound_to_spectrogram(sound, sampling, n_fft=2048):
+#     y = utils.read_audio_spectrum(sound, sampling, n_fft=n_fft, reduce_factor=1)
 
 
 def get_male_female_pairs(path, product=True, subsample=-1):
