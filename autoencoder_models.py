@@ -263,14 +263,18 @@ def VAE(input_shape=[None, 784],
     # now have the reconstruction through the network
     y = current_input
     print(y.get_shape())
-    target = tf.placeholder(tf.float32, input_shape, name='target')
+    target = x_tensor
+    # target = tf.placeholder(tf.float32, input_shape, name='target')
     # cost function measures pixel-wise difference
 
     if loss_function == 'l2':
+        print('l2 loss function chosen')
         rec_cost = l2_loss(y, target)
     elif loss_function == 'l1':
+        print('l1 loss function chosen')
         rec_cost = l1_loss(y, target)
     else:
+        print('cross entropy loss function chosen')
         rec_cost = cross_entropy(y, target)
     ampl_factor = 1000
     vae_loss_kl = ampl_factor * kl_div(z_mean, z_sigma)
@@ -292,7 +296,7 @@ def VAE(input_shape=[None, 784],
     train_op = optimizer.apply_gradients(clipped, global_step=global_step, name="minimize_cost")
 
     # %%
-    return {'x': x, 'z': z, 'y': y, 'target': target, 'cost': cost, 'rec_cost': rec_cost, 'vae_loss_kl': vae_loss_kl,
+    return {'x': x, 'z': z, 'y': y, 'cost': cost, 'rec_cost': rec_cost, 'vae_loss_kl': vae_loss_kl,
             'z_mean': z_mean, 'z_sigma': z_sigma,
             'train_op': train_op}, shapes
 

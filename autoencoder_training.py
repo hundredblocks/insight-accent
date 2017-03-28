@@ -1,4 +1,3 @@
-
 import matplotlib
 import os
 import numpy as np
@@ -238,22 +237,24 @@ def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, l
 
             train_source = np.array([img - train_mean_x for img in batch_xs])
             sess.run(ae['train_op'],
-                     feed_dict={ae['x']: train_source, ae['target']: train_source})
+                     # feed_dict={ae['x']: train_source, ae['target']: train_source})
+                     feed_dict={ae['x']: train_source})
 
         cost, rec_cost, kl_cost = sess.run([ae['cost'], ae['rec_cost'], ae['vae_loss_kl']],
                                            # feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm})
-                                           feed_dict={ae['x']: train_norm, ae['target']: train_norm})
+                                           feed_dict={ae['x']: train_norm})
 
         print(cost, np.mean(rec_cost), np.mean(kl_cost))
+        # print(cost, (rec_cost), (kl_cost))
         # print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm}))
-        print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_norm, ae['target']: train_norm}))
+        print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_norm}))
 
         if epoch_i % 10 == 0 and len(validation) > 0:
             # print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_xs_norm, ae['target']: validation_ys_norm}))
-            print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_norm, ae['target']: validation_norm}))
+            print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_norm}))
     if len(test) > 0:
         # print("Test", sess.run(ae['cost'], feed_dict={ae['x']: test_xs_norm, ae['target']: test_ys_norm}))
-        print("Test", sess.run(ae['cost'], feed_dict={ae['x']: test_norm, ae['target']: test_norm}))
+        print("Test", sess.run(ae['cost'], feed_dict={ae['x']: test_norm}))
     save_path = saver.save(sess, "./AE.ckpt")
     return ae
 
@@ -324,13 +325,11 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
         n_filters = [1, 3, 3, 3]
     if not filter_sizes:
         filter_sizes = [4, 4, 4, 4]
-    # data_and_path, fs = get_male_female_pairs(data_path, product=False, subsample=subsample)
-    print("data loaded")
-    # print("Working with %s examples" % len(data_and_path))
-    # input_data = [a[0] for a in data_and_path]
-    data_and_path_female, fs = get_all_autoencoder_audio_in_folder(os.path.join(data_path, 'female'), subsample=subsample)
-    data_and_path_male, fs = get_all_autoencoder_audio_in_folder(os.path.join(data_path, 'female'),
+    data_and_path_female, fs = get_all_autoencoder_audio_in_folder(os.path.join(data_path, 'female'),
+                                                                   subsample=subsample)
+    data_and_path_male, fs = get_all_autoencoder_audio_in_folder(os.path.join(data_path, 'male'),
                                                                  subsample=15, random=True)
+    print("data loaded")
     input_data = [a[0] for a in data_and_path_female]
     t_dim = input_data[0].shape[0]
     f_dim = input_data[0].shape[1]
@@ -338,13 +337,13 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
                      n_filters=n_filters,
                      filter_sizes=filter_sizes, z_dim=z_dim, loss_function=loss_function)
     sess = tf.Session()
-    # train, val, test = split_dataset(data_and_path, test_split, validation_split)
     train, val, test = split_dataset(data_and_path_female, test_split, validation_split)
+    print("Total %s. Training on %s, validating on %s, testing on %s" % (
+        len(data_and_path_female), len(train), len(val), len(test)))
     if autoencode:
         ae = train_autoencoder(ae, sess, train, val, test, batch_size=batch_size, n_epochs=n_epochs)
     else:
         ae = train_crossautoencoder(ae, sess, train, val, test, batch_size=batch_size, n_epochs=n_epochs)
-    # print(len(train), len(val), len(test), len(data_and_path))
 
     # plot_spectrograms(train, sess, ae, t_dim, f_dim)
 
@@ -410,6 +409,6 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 if __name__ == '__main__':
     # test_data()
     vanilla_autoencoder(n_filters=[1, 4, 4, 4], filter_sizes=[4, 4, 4, 4],
-                        z_dim=50, subsample=20, batch_size=4, n_epochs=20,
-                        loss_function='l1', autoencode=True, data_path='encoder_data/DAPS/f3_m4/cut_1000_step_100')
+                        z_dim=50, subsample=20, batch_size=4, n_epochs=50,
+                        loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/f3_m4/cut_1000_step_100')
     # test(mnist_flag=True)
