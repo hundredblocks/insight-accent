@@ -273,7 +273,7 @@ def VAE(input_shape=[None, 784],
     else:
         rec_cost = cross_entropy(y, target)
     ampl_factor = 1000
-    vae_loss_kl = ampl_factor*kl_div(z_mean, z_sigma)
+    vae_loss_kl = ampl_factor * kl_div(z_mean, z_sigma)
     # vae_loss_kl = tf.reduce_mean(vae_loss_kl) / n_points
     print("vae")
     print(vae_loss_kl.get_shape())
@@ -426,14 +426,12 @@ def sample_gaussian(mu, log_sigma):
     return mu + epsilon * tf.exp(log_sigma)  # N(mu, I * sigma**2)
 
 
+def bias_variable(shape):
+    initial = tf.random_normal(shape, mean=0.0, stddev=0.01)
+    return tf.Variable(initial)
+
+
 def weight_variable(shape):
-    '''Helper function to create a weight variable initialized with
-    a normal distribution
-    Parameters
-    ----------
-    shape : list
-        Size of weight variable
-    '''
     initial = tf.random_normal(shape, mean=0.0, stddev=0.01)
     return tf.Variable(initial)
 
@@ -468,18 +466,6 @@ def fc_layer(prev_layer, in_dim, out_dim, output_shape):
     w_m = fc_weight_variable(in_dim, out_dim, output_shape)
     b_m = tf.Variable(tf.zeros([out_dim]))
     return tf.matmul(prev_layer, w_m) + b_m
-
-
-def bias_variable(shape):
-    '''Helper function to create a bias variable initialized with
-    a constant value.
-    Parameters
-    ----------
-    shape : list
-        Size of weight variable
-    '''
-    initial = tf.random_normal(shape, mean=0.0, stddev=0.01)
-    return tf.Variable(initial)
 
 
 def cross_entropy(y, target, offset=1e-7):

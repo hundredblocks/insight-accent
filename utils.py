@@ -26,21 +26,25 @@ def slice(infile, outfilename, start_ms, end_ms):
     out.writeframes(infile.readframes(length))
 
 
-def multislice(infile, outfilepath, outfilename, ms_cut_size=3000, ms_step_size=1):
+def multislice(infile, outfilepath, outfilename, ms_cut_size=3000, ms_step_size=1, start_pad=0, end_pad=None):
     # width = infile.getsampwidth()
     rate = infile.getframerate()
     nframes = infile.getnframes()
     total_length_seconds = nframes / float(rate)
     total_length_ms = total_length_seconds * 1000
 
-    if total_length_ms < ms_cut_size:
+    if end_pad is None:
+        end_pad = 0
+    to_cut_length = (total_length_ms - end_pad) - start_pad
+
+    if to_cut_length < ms_cut_size:
         return
 
-    num_cuts = int(1+(total_length_ms-ms_cut_size) // ms_step_size)
+    num_cuts = int(1 + (to_cut_length - ms_cut_size) // ms_step_size)
 
     for i in range(num_cuts):
-        start_ms = i * ms_step_size
-        end_ms = i * ms_step_size + ms_cut_size
+        start_ms = i * ms_step_size + start_pad
+        end_ms = start_ms + ms_cut_size
         name_and_extension = outfilename.split('.')
         name_str = "_".join(name_and_extension[:-1])
         cut_outname = '%s_%s-%s.%s' % (name_str, start_ms, end_ms, name_and_extension[-1])
@@ -66,6 +70,7 @@ def plot_spectrum(x, fs):
     plt.imshow(spec)
     # plt.plot(np.reshape(test_xs[spec, :], (spec.shape[0], spec.shape[1])), aspect='auto')
     plt.show()
+
 
 def fft_to_audio(out_name, spectrogram, sampling_frequency, n_fft=N_FFT, n_iter=500, entire_path=False):
     p = 2 * np.pi * np.random.random_sample(spectrogram.shape) - np.pi

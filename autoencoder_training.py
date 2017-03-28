@@ -1,10 +1,6 @@
-"""from https://github.com/pkmital/tensorflow_tutorials/blob/master/python/09_convolutional_autoencoder.py
-Tutorial on how to create a convolutional autoencoder w/ Tensorflow.
-
-Parag K. Mital, Jan 2016
-"""
 
 import matplotlib
+import os
 import numpy as np
 import tensorflow as tf
 
@@ -12,7 +8,7 @@ from autoencoder_models import VAE, VAE_MNIST, cross_autoencoder
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from data_fetch import get_male_female_pairs
+from data_fetch import get_male_female_pairs, get_all_autoencoder_audio_in_folder
 from utils import fft_to_audio
 
 
@@ -199,7 +195,70 @@ def get_normalized_x_y(validation):
     return validation_xs_norm, validation_ys_norm
 
 
+def get_normalized(validation):
+    if len(validation) == 0:
+        return [], []
+    validation_mean = np.mean([a[0] for a in validation])
+    validation_set = np.array(validation)
+    validation_sources = [a[0] for a in validation_set]
+
+    validation_xs = np.zeros(
+        [len(validation_sources), validation_sources[0].shape[0], validation_sources[0].shape[1], 1])
+    for j, a in enumerate(validation_sources):
+        validation_xs[j][:, :, 0] = a
+    validation_norm = np.array([img - validation_mean for img in validation_xs])
+    return validation_norm
+
+
 def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, learning_rate=0.01):
+    # optimizer = tf.train.AdamOptimizer(learning_rate).minimize(ae['cost'])
+
+    train_mean_x = np.mean([a[0] for a in train])
+
+    training_set = np.array(train)
+
+    train_norm = get_normalized(train)
+    validation_norm = get_normalized(validation)
+    test_norm = get_normalized(test)
+
+    sess.run(tf.global_variables_initializer())
+
+    saver = tf.train.Saver(tf.all_variables(), max_to_keep=None)
+    for epoch_i in range(n_epochs):
+        # noinspection PyUnresolvedReferences
+        perms = np.random.permutation(training_set)
+        for i in range(len(training_set) / batch_size):
+            batch = perms[i * batch_size:(i + 1) * batch_size, :]
+            sources = [a[0] for a in batch]
+
+            # TODO reformat
+            batch_xs = np.zeros([len(sources), sources[0].shape[0], sources[0].shape[1], 1])
+            for j, a in enumerate(sources):
+                batch_xs[j][:, :, 0] = a
+
+            train_source = np.array([img - train_mean_x for img in batch_xs])
+            sess.run(ae['train_op'],
+                     feed_dict={ae['x']: train_source, ae['target']: train_source})
+
+        cost, rec_cost, kl_cost = sess.run([ae['cost'], ae['rec_cost'], ae['vae_loss_kl']],
+                                           # feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm})
+                                           feed_dict={ae['x']: train_norm, ae['target']: train_norm})
+
+        print(cost, np.mean(rec_cost), np.mean(kl_cost))
+        # print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm}))
+        print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_norm, ae['target']: train_norm}))
+
+        if epoch_i % 10 == 0 and len(validation) > 0:
+            # print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_xs_norm, ae['target']: validation_ys_norm}))
+            print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_norm, ae['target']: validation_norm}))
+    if len(test) > 0:
+        # print("Test", sess.run(ae['cost'], feed_dict={ae['x']: test_xs_norm, ae['target']: test_ys_norm}))
+        print("Test", sess.run(ae['cost'], feed_dict={ae['x']: test_norm, ae['target']: test_norm}))
+    save_path = saver.save(sess, "./AE.ckpt")
+    return ae
+
+
+def train_crossautoencoder(ae, sess, train, validation, test, batch_size, n_epochs, learning_rate=0.01):
     # optimizer = tf.train.AdamOptimizer(learning_rate).minimize(ae['cost'])
 
     train_mean_x = np.mean([a[0] for a in train])
@@ -265,38 +324,39 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
         n_filters = [1, 3, 3, 3]
     if not filter_sizes:
         filter_sizes = [4, 4, 4, 4]
-    data_and_path, fs = get_male_female_pairs(data_path, product=False, subsample=subsample)
+    # data_and_path, fs = get_male_female_pairs(data_path, product=False, subsample=subsample)
     print("data loaded")
-    print("Working with %s examples" % len(data_and_path))
-    input_data = [a[0] for a in data_and_path]
+    # print("Working with %s examples" % len(data_and_path))
+    # input_data = [a[0] for a in data_and_path]
+    data_and_path_female, fs = get_all_autoencoder_audio_in_folder(os.path.join(data_path, 'female'), subsample=subsample)
+    data_and_path_male, fs = get_all_autoencoder_audio_in_folder(os.path.join(data_path, 'female'),
+                                                                 subsample=15, random=True)
+    input_data = [a[0] for a in data_and_path_female]
     t_dim = input_data[0].shape[0]
     f_dim = input_data[0].shape[1]
     ae, shapes = VAE(input_shape=[None, t_dim, f_dim, 1],
                      n_filters=n_filters,
                      filter_sizes=filter_sizes, z_dim=z_dim, loss_function=loss_function)
     sess = tf.Session()
-    train, val, test = split_dataset(data_and_path, test_split, validation_split)
+    # train, val, test = split_dataset(data_and_path, test_split, validation_split)
+    train, val, test = split_dataset(data_and_path_female, test_split, validation_split)
     if autoencode:
-        train_model = [[t[1], t[1], t[-1]] for t in train]
-        val_model = [[t[1], t[1], t[-1]] for t in val]
-        test_model = [[t[1], t[1], t[-1]] for t in test]
-        ae = train_autoencoder(ae, sess, train_model, val_model, test_model, batch_size=batch_size, n_epochs=n_epochs)
-    else:
         ae = train_autoencoder(ae, sess, train, val, test, batch_size=batch_size, n_epochs=n_epochs)
-    print(len(train), len(val), len(test), len(data_and_path))
+    else:
+        ae = train_crossautoencoder(ae, sess, train, val, test, batch_size=batch_size, n_epochs=n_epochs)
+    # print(len(train), len(val), len(test), len(data_and_path))
+
     # plot_spectrograms(train, sess, ae, t_dim, f_dim)
 
     to_plot_train = np.random.permutation(train)[:min(len(train), 15)]
     to_plot_val = np.random.permutation(val)[:min(len(val), 15)]
     to_plot_test = np.random.permutation(test)[:min(len(test), 15)]
     output_examples(to_plot_train, ae, sess, fs, 'ae/train')
-    output_examples(to_plot_train, ae, sess, fs, 'ae/train', sources_index=1)
 
     output_examples(to_plot_val, ae, sess, fs, 'ae/val')
-    output_examples(to_plot_val, ae, sess, fs, 'ae/val', sources_index=1)
 
     output_examples(to_plot_test, ae, sess, fs, 'ae/test')
-    output_examples(to_plot_test, ae, sess, fs, 'ae/test', sources_index=1)
+    output_examples(data_and_path_male, ae, sess, fs, 'ae/male')
     plt.show()
 
 
@@ -351,5 +411,5 @@ if __name__ == '__main__':
     # test_data()
     vanilla_autoencoder(n_filters=[1, 4, 4, 4], filter_sizes=[4, 4, 4, 4],
                         z_dim=50, subsample=20, batch_size=4, n_epochs=20,
-                        loss_function='l1', autoencode=True, data_path='encoder_data/DAPS/small_test/cut_1000_step_100')
+                        loss_function='l1', autoencode=True, data_path='encoder_data/DAPS/f3_m4/cut_1000_step_100')
     # test(mnist_flag=True)

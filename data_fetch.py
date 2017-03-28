@@ -206,7 +206,7 @@ def cut_all(base_dir):
                              ms_cut_size=3000, ms_step_size=1000)
 
 
-def cut_daps(path, ms_cut_size=3000, ms_step_size=1000, out='cut'):
+def cut_daps(path, start_pad=0, end_pad=None, ms_cut_size=3000, ms_step_size=1000, out='cut'):
     for root, dirs, files in os.walk(path):
         for filename in files:
             if not filename.endswith('wav'):
@@ -215,7 +215,7 @@ def cut_daps(path, ms_cut_size=3000, ms_step_size=1000, out='cut'):
             print(filepath)
             infile = wave.open(filepath)
             out_path = os.path.join(root, out)
-            utils.multislice(infile, out_path, filename,
+            utils.multislice(infile, out_path, filename, start_pad=start_pad, end_pad=end_pad,
                              ms_cut_size=ms_cut_size, ms_step_size=ms_step_size)
 
 
@@ -263,17 +263,50 @@ def get_all_audio_in_folder(path, subsample=-1):
     return data_and_label, fs
 
 
+# Data format: [[input, paths],...]
+def get_all_autoencoder_audio_in_folder(path, subsample=-1, random=False):
+    source_list = []
+    path_list = []
+    onlyfiles = [f for f in listdir(path) if
+                 isfile(join(path, f)) and not f.startswith('.DS')]
+    onlyfiles = sorted(onlyfiles)
+    if random is True:
+        onlyfiles = np.random.permutation(onlyfiles)
+    for i, f in enumerate(onlyfiles):
+        if subsample != -1 and i > subsample:
+            continue
+        file = os.path.join(path, f)
+        x, fs = librosa.load(file)
+        S = utils.read_audio_spectrum(x, fs)
+        formatted_vec = np.ascontiguousarray(S.T[None, None, :, :])
+        source_list.append(formatted_vec)
+        path_list.append(f)
+
+    t_dim = source_list[0].shape[2]
+    f_dim = source_list[0].shape[3]
+
+    formatted_source = np.zeros([len(source_list), t_dim, f_dim])
+    for i, x in enumerate(source_list):
+        formatted_source[i] = x
+
+    data_and_label = [np.array([formatted_source[i, :, :], path_list[i]]) for i in
+                      range(len(source_list))]
+    return data_and_label, fs
+
+
+# def get_all_audio(path, subsample=-1):
+#     folders = [f for f in listdir(path) if
+#                not isfile(join(path, f)) and f.endswith('male')]
+
+
 def get_male_female_pairs(path, product=True, subsample=-1):
     folders = [f for f in listdir(path) if
                not isfile(join(path, f)) and f.endswith('male')]
-    data = {}
+    # data = {}
     label_map = {}
     for fol in folders:
         data_and_label, fs = get_all_audio_in_folder(os.path.join(path, fol), subsample=subsample)
-        data[fol] = data_and_label
-        # formatted_label = data_and_label[-1].split('_')[-1]
-
-        label_map[fol] = {d[-1].split('_')[-1]: d[0] for d in data_and_label}
+        label_map[fol] = {'_'.join(d[-1].split('_')[1:]): d[0] for d in data_and_label}
 
     male_audio = []
     female_audio = []
@@ -281,8 +314,6 @@ def get_male_female_pairs(path, product=True, subsample=-1):
     for key, value in label_map['male'].items():
         male_audio.append([value, key])
         female_audio.append([female_map[key], key])
-    # male_audio = [[a[0], a[-1]] for a in data['male']]
-    # female_audio = [[a[1], a[-1]] for a in data['female']]
     final_pairs = []
     if product:
         to_iterate = itertools.product(male_audio, female_audio)
@@ -293,10 +324,6 @@ def get_male_female_pairs(path, product=True, subsample=-1):
         formatted_pair = [np.array(pair[0][0]), np.array(pair[1][0]), name]
         final_pairs.append(formatted_pair)
     return final_pairs, fs
-
-
-def match(male, female):
-    end_pairs = []
 
 
 def get_examples_from_paths(path_dict):
