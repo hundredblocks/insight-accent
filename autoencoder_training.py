@@ -194,66 +194,52 @@ def get_normalized_x_y(validation):
     return validation_xs_norm, validation_ys_norm
 
 
-def get_normalized(validation):
-    if len(validation) == 0:
+def get_normalized(data, data_mean=None, data_std=None):
+    np_data_only = np.array([a[0] for a in data])
+    if len(data) == 0:
         return [], []
-    validation_mean = np.mean([a[0] for a in validation])
-    validation_set = np.array(validation)
-    validation_sources = [a[0] for a in validation_set]
+    if data_mean is None:
+        data_mean = np.mean(np_data_only)
+        print("MEAN", data_mean)
+    if data_std is None:
+        data_std = np.std(np_data_only)
+        print("STD", data_std)
 
-    validation_xs = np.zeros(
-        [len(validation_sources), validation_sources[0].shape[0], validation_sources[0].shape[1], 1])
-    for j, a in enumerate(validation_sources):
-        validation_xs[j][:, :, 0] = a
-    validation_norm = np.array([img - validation_mean for img in validation_xs])
-    return validation_norm
+    np_normalized = (np_data_only - data_mean) / data_std
+
+    # data_array = np.array(data)
+    # np_data_only = [a[0] for a in data_array]
+
+    tensor = np.zeros(
+        [len(np_data_only), np_data_only[0].shape[0], np_data_only[0].shape[1], 1])
+    for j, a in enumerate(np_normalized):
+        tensor[j][:, :, 0] = a
+
+    # validation_normalized = np.array([img - data_mean for img in validation_xs])
+    return tensor, data_mean, data_std
 
 
-def train_autoencoder(ae, sess, train, validation, test, batch_size, n_epochs, learning_rate=0.01):
-    # optimizer = tf.train.AdamOptimizer(learning_rate).minimize(ae['cost'])
-
-    train_mean_x = np.mean([a[0] for a in train])
-
-    training_set = np.array(train)
-
-    train_norm = get_normalized(train)
-    validation_norm = get_normalized(validation)
-    test_norm = get_normalized(test)
-
+def train_autoencoder(ae, sess, train_norm, validation_norm, test_norm, batch_size, n_epochs, learning_rate=0.01):
     sess.run(tf.global_variables_initializer())
 
     saver = tf.train.Saver(tf.all_variables(), max_to_keep=None)
     for epoch_i in range(n_epochs):
-        # noinspection PyUnresolvedReferences
-        perms = np.random.permutation(training_set)
-        for i in range(len(training_set) / batch_size):
-            batch = perms[i * batch_size:(i + 1) * batch_size, :]
-            sources = [a[0] for a in batch]
-
-            # TODO reformat
-            batch_xs = np.zeros([len(sources), sources[0].shape[0], sources[0].shape[1], 1])
-            for j, a in enumerate(sources):
-                batch_xs[j][:, :, 0] = a
-
-            train_source = np.array([img - train_mean_x for img in batch_xs])
+        perms = np.random.permutation(train_norm)
+        for i in range(len(train_norm) / batch_size):
+            batch_input = perms[i * batch_size:(i + 1) * batch_size, :]
             sess.run(ae['train_op'],
-                     # feed_dict={ae['x']: train_source, ae['target']: train_source})
-                     feed_dict={ae['x']: train_source})
+                     feed_dict={ae['x']: batch_input})
 
         cost, rec_cost, kl_cost = sess.run([ae['cost'], ae['rec_cost'], ae['vae_loss_kl']],
-                                           # feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm})
                                            feed_dict={ae['x']: train_norm})
 
         print(cost, np.mean(rec_cost), np.mean(kl_cost))
         # print(cost, (rec_cost), (kl_cost))
-        # print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_xs_norm, ae['target']: train_ys_norm}))
         print(epoch_i, sess.run(ae['cost'], feed_dict={ae['x']: train_norm}))
 
-        if epoch_i % 10 == 0 and len(validation) > 0:
-            # print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_xs_norm, ae['target']: validation_ys_norm}))
+        if epoch_i % 10 == 0 and len(validation_norm) > 0:
             print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_norm}))
-    if len(test) > 0:
-        # print("Test", sess.run(ae['cost'], feed_dict={ae['x']: test_xs_norm, ae['target']: test_ys_norm}))
+    if len(test_norm) > 0:
         print("Test", sess.run(ae['cost'], feed_dict={ae['x']: test_norm}))
     save_path = saver.save(sess, "./AE.ckpt")
     return ae
@@ -336,40 +322,48 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
     ae, shapes = VAE(input_shape=[None, t_dim, f_dim, 1],
                      n_filters=n_filters,
                      filter_sizes=filter_sizes, z_dim=z_dim, loss_function=loss_function)
+
     sess = tf.Session()
-    train, val, test = split_dataset(data_and_path_female, test_split, validation_split)
+    train_split, val_split, test_split = split_dataset(data_and_path_female, test_split, validation_split)
+
+    train_norm, data_var, data_mean = get_normalized(train_split)
+    val_norm, _, _ = get_normalized(val_split, data_var, data_mean)
+    test_norm, _, _ = get_normalized(test_split, data_var, data_mean)
+
     print("Total %s. Training on %s, validating on %s, testing on %s" % (
-        len(data_and_path_female), len(train), len(val), len(test)))
+        len(data_and_path_female), len(train_split), len(val_split), len(test_split)))
     if autoencode:
-        ae = train_autoencoder(ae, sess, train, val, test, batch_size=batch_size, n_epochs=n_epochs)
+        ae = train_autoencoder(ae, sess, train_norm, val_norm, test_norm, batch_size=batch_size, n_epochs=n_epochs)
     else:
-        ae = train_crossautoencoder(ae, sess, train, val, test, batch_size=batch_size, n_epochs=n_epochs)
+        ae = train_crossautoencoder(ae, sess, train_split, val_split, test_split, batch_size=batch_size, n_epochs=n_epochs)
 
     # plot_spectrograms(train, sess, ae, t_dim, f_dim)
 
-    to_plot_train = np.random.permutation(train)[:min(len(train), 15)]
-    to_plot_val = np.random.permutation(val)[:min(len(val), 15)]
-    to_plot_test = np.random.permutation(test)[:min(len(test), 15)]
-    output_examples(to_plot_train, ae, sess, fs, 'ae/train')
+    to_plot_train = np.random.permutation(train_split)[:min(len(train_split), 15)]
+    to_plot_val = np.random.permutation(val_split)[:min(len(val_split), 15)]
+    to_plot_test = np.random.permutation(test_split)[:min(len(test_split), 15)]
+    output_examples(to_plot_train, ae, sess, fs, 'ae/train', data_mean, data_var)
 
-    output_examples(to_plot_val, ae, sess, fs, 'ae/val')
+    output_examples(to_plot_val, ae, sess, fs, 'ae/val', data_mean, data_var)
 
-    output_examples(to_plot_test, ae, sess, fs, 'ae/test')
-    output_examples(data_and_path_male, ae, sess, fs, 'ae/male')
+    output_examples(to_plot_test, ae, sess, fs, 'ae/test', data_mean, data_var)
+    output_examples(data_and_path_male, ae, sess, fs, 'ae/male', data_mean, data_var)
     plt.show()
 
 
-def output_examples(data, model, sess, fs, folder, sources_index=0):
-    source = [d[sources_index] for d in data]
-    test_xs = np.zeros([len(source), source[0].shape[0], source[0].shape[1], 1])
-    for i, a in enumerate(source):
-        test_xs[i][:, :, 0] = a
-    mean_img = np.mean(test_xs)
-    test_xs_norm = np.array([img - mean_img for img in test_xs])
+def output_examples(data, model, sess, fs, folder, data_mean, data_var):
+    # source = [d[0] for d in data]
+    # test_xs = np.zeros([len(source), source[0].shape[0], source[0].shape[1], 1])
+    # for i, a in enumerate(source):
+    #     test_xs[i][:, :, 0] = a
+    # mean_img = np.mean(test_xs)
+    # test_xs_norm = np.array([img - mean_img for img in test_xs])
 
-    recon = sess.run(model['y'], feed_dict={model['x']: test_xs_norm})
+    source_norm, _, _ = get_normalized(data, data_mean, data_var)
+
+    recon = sess.run(model['y'], feed_dict={model['x']: source_norm})
     for i in range(len(data)):
-        output_filename = fft_to_audio('encoder_data/outputs/%s/a-%s_%s_%s' % (folder, i, sources_index, data[i][-1]),
+        output_filename = fft_to_audio('encoder_data/outputs/%s/a-%s_%s' % (folder, i, data[i][-1]),
                                        recon[i, ..., 0].T, fs, entire_path=True)
 
 
@@ -409,6 +403,6 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 if __name__ == '__main__':
     # test_data()
     vanilla_autoencoder(n_filters=[1, 4, 4, 4], filter_sizes=[4, 4, 4, 4],
-                        z_dim=50, subsample=20, batch_size=4, n_epochs=100,
+                        z_dim=50, subsample=20, batch_size=4, n_epochs=300,
                         loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/f3_m4/cut_1000_step_100')
     # test(mnist_flag=True)

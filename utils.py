@@ -63,12 +63,8 @@ def read_audio_spectrum(x, fs, n_fft=N_FFT, reduce_factor=1):
 
 def plot_spectrum(x, fs):
     spec = read_audio_spectrum(x, fs)
-    # test_xs = np.zeros([1, spec.shape[0], spec.shape[1], 1])
-    # for i, a in enumerate(spec):
-    #     test_xs[i][:, :, 0] = a
     plt.figure()
     plt.imshow(spec)
-    # plt.plot(np.reshape(test_xs[spec, :], (spec.shape[0], spec.shape[1])), aspect='auto')
     plt.show()
 
 
