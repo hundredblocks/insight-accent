@@ -221,7 +221,7 @@ def get_normalized(data, data_mean=None, data_std=None):
 
 def train_autoencoder(ae, sess, train_norm, validation_norm, test_norm, batch_size, n_epochs, learning_rate=0.01):
     sess.run(tf.global_variables_initializer())
-
+    keep_prob = 0.9
     saver = tf.train.Saver(tf.all_variables(), max_to_keep=None)
     for epoch_i in range(n_epochs):
         perms = np.random.permutation(train_norm)
@@ -231,7 +231,8 @@ def train_autoencoder(ae, sess, train_norm, validation_norm, test_norm, batch_si
                      feed_dict={ae['x']: batch_input})
 
         cost, rec_cost, kl_cost = sess.run([ae['cost'], ae['rec_cost'], ae['vae_loss_kl']],
-                                           feed_dict={ae['x']: train_norm})
+                                           feed_dict={ae['x']: train_norm,
+                                                      ae['dropout']:keep_prob})
 
         print(cost, np.mean(rec_cost), np.mean(kl_cost))
         # print(cost, (rec_cost), (kl_cost))
@@ -403,8 +404,8 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 # %%
 if __name__ == '__main__':
     # test_data()
-    vanilla_autoencoder(n_filters=[1, 4, 4, 4], filter_sizes=[4, 4, 4, 4],
+    vanilla_autoencoder(n_filters=[1, 4, 6, 8], filter_sizes=[4, 4, 4, 4],
                         #z_dim=50, subsample=20, batch_size=4, n_epochs=600,
-                        z_dim=50, subsample=10, batch_size=2, n_epochs=200,
+                        z_dim=500, subsample=10, batch_size=2, n_epochs=800,
                         loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/f3_m4/cut_1000_step_100')
     # test(mnist_flag=True)
