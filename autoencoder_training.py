@@ -3,7 +3,7 @@ import os
 import numpy as np
 import tensorflow as tf
 
-from autoencoder_models import VAE, VAE_MNIST, cross_autoencoder
+from autoencoder_models import vae, VAE_MNIST, cross_autoencoder
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -48,7 +48,7 @@ def test(mnist_flag=True):
         tdim = only_female[0].shape[0]
         fdim = only_female[0].shape[1]
         num_examples = len(train)
-        ae = VAE(input_shape=[None, tdim * fdim])
+        ae = vae(input_shape=[None, tdim * fdim])
 
     # hidden_size = 2
     # ae = VAE(n_hidden=hidden_size)
@@ -222,6 +222,7 @@ def get_normalized(data, data_mean=None, data_std=None):
 def train_autoencoder(ae, sess, train_norm, validation_norm, test_norm, batch_size, n_epochs, learning_rate=0.01):
     sess.run(tf.global_variables_initializer())
     keep_prob = 0.9
+    keep_prob_fc = 0.7
     saver = tf.train.Saver(tf.all_variables(), max_to_keep=None)
     for epoch_i in range(n_epochs):
         perms = np.random.permutation(train_norm)
@@ -232,7 +233,8 @@ def train_autoencoder(ae, sess, train_norm, validation_norm, test_norm, batch_si
 
         cost, rec_cost, kl_cost = sess.run([ae['cost'], ae['rec_cost'], ae['vae_loss_kl']],
                                            feed_dict={ae['x']: train_norm,
-                                                      ae['dropout']:keep_prob})
+                                                      ae['dropout']: keep_prob,
+                                                      ae['dropout_fc']: keep_prob_fc})
 
         print(cost, np.mean(rec_cost), np.mean(kl_cost))
         # print(cost, (rec_cost), (kl_cost))
@@ -322,7 +324,7 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
     input_data = [a[0] for a in data_and_path_female]
     t_dim = input_data[0].shape[0]
     f_dim = input_data[0].shape[1]
-    ae, shapes = VAE(input_shape=[None, t_dim, f_dim, 1],
+    ae, shapes = vae(input_shape=[None, t_dim, f_dim, 1],
                      n_filters=n_filters,
                      filter_sizes=filter_sizes, z_dim=z_dim, loss_function=loss_function)
 
@@ -338,7 +340,8 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
     if autoencode:
         ae = train_autoencoder(ae, sess, train_norm, val_norm, test_norm, batch_size=batch_size, n_epochs=n_epochs)
     else:
-        ae = train_crossautoencoder(ae, sess, train_split, val_split, test_split, batch_size=batch_size, n_epochs=n_epochs)
+        ae = train_crossautoencoder(ae, sess, train_split, val_split, test_split, batch_size=batch_size,
+                                    n_epochs=n_epochs)
 
     # plot_spectrograms(train, sess, ae, t_dim, f_dim)
 
@@ -356,7 +359,6 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
 
 
 def output_examples(data, model, sess, fs, folder, data_mean, data_std):
-
     source_norm, _, _ = get_normalized(data, data_mean, data_std)
 
     recon = sess.run(model['y'], feed_dict={model['x']: source_norm})
@@ -405,7 +407,7 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 if __name__ == '__main__':
     # test_data()
     vanilla_autoencoder(n_filters=[1, 4, 6, 8], filter_sizes=[4, 4, 4, 4],
-                        #z_dim=50, subsample=20, batch_size=4, n_epochs=600,
+                        # z_dim=50, subsample=20, batch_size=4, n_epochs=600,
                         z_dim=500, subsample=10, batch_size=2, n_epochs=800,
                         loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/f3_m4/cut_1000_step_100')
     # test(mnist_flag=True)

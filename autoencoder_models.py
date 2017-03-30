@@ -128,14 +128,13 @@ def cross_autoencoder(input_shape=[None, 784],
     return {'x': x, 'z': z, 'y': y, 'target': target, 'cost': cost}, shapes
 
 
-def VAE(input_shape=[None, 784],
+def vae(input_shape=[None, 784],
         n_filters=[1, 10, 10, 10],
         filter_sizes=[3, 3, 3, 3],
         z_dim=50, loss_function='l2'):
-
     x = tf.placeholder(tf.float32, input_shape, name='x')
     dropout = tf.placeholder_with_default(1., shape=[], name="dropout")
-
+    dropout_fc = tf.placeholder_with_default(1., shape=[], name="dropout")
 
     if len(x.get_shape()) == 2:
         x_dim = np.sqrt(x.get_shape().as_list()[1])
@@ -162,9 +161,10 @@ def VAE(input_shape=[None, 784],
 
         outputs.append(current_input)
 
-        output = tf.nn.relu(conv_layer(current_input, [filter_sizes[layer_i], filter_sizes[layer_i], n_input, n_output],
-                                       -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input), n_output, dropout))
-
+        output_pre_drop = tf.nn.relu(
+            conv_layer(current_input, [filter_sizes[layer_i], filter_sizes[layer_i], n_input, n_output],
+                       -1.0 / math.sqrt(n_input), 1.0 / math.sqrt(n_input), n_output))
+        output = tf.nn.dropout(output_pre_drop, dropout)
         print("W at layer", layer_i, [
             filter_sizes[layer_i],
             filter_sizes[layer_i],
@@ -181,8 +181,11 @@ def VAE(input_shape=[None, 784],
     print("output_flatten")
     print(output_flatten.get_shape())
 
-    z_mean = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
-    z_sigma = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
+    z_mean_pre_drop = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
+    z_mean = tf.nn.dropout(z_mean_pre_drop, dropout_fc)
+
+    z_sigma_pre_drop = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
+    z_sigma = tf.nn.dropout(z_sigma_pre_drop, dropout_fc)
     print("z_mean")
     print(z_mean.get_shape())
 
@@ -190,7 +193,8 @@ def VAE(input_shape=[None, 784],
     print("z")
     print(z.get_shape())
 
-    rec = fc_layer(z, z_dim, output_flatten.get_shape().as_list()[1], output_shape)
+    rec_pre_drop = fc_layer(z, z_dim, output_flatten.get_shape().as_list()[1], output_shape)
+    rec = tf.nn.dropout(rec_pre_drop, dropout_fc)
     print("reconstruction")
     print(rec.get_shape())
 
@@ -219,11 +223,12 @@ def VAE(input_shape=[None, 784],
         print(tf.stack(filter_shape))
 
         deconv = deconv_layer(current_input, weights_shape, filter_shape,
-                              -1.0 / math.sqrt(n_output), 1.0 / math.sqrt(n_output), n_output, dropout)
-        if layer_i != len(shapes)-1:
-            output = tf.nn.relu(deconv)
+                              -1.0 / math.sqrt(n_output), 1.0 / math.sqrt(n_output), n_output)
+        if layer_i != len(shapes) - 1:
+            output_pre_drop = tf.nn.relu(deconv)
         else:
-            output = deconv
+            output_pre_drop = deconv
+        output = tf.nn.dropout(output_pre_drop, dropout)
         current_input = output
         print(output.get_shape())
 
@@ -259,7 +264,7 @@ def VAE(input_shape=[None, 784],
 
     return {'x': x, 'z': z, 'y': y, 'cost': cost, 'rec_cost': rec_cost, 'vae_loss_kl': vae_loss_kl,
             'z_mean': z_mean, 'z_sigma': z_sigma,
-            'train_op': train_op, 'dropout': dropout}, shapes
+            'train_op': train_op, 'dropout': dropout, 'dropout_fc': dropout_fc}, shapes
 
 
 def VAE_MNIST(input_shape=[None, 784],
@@ -409,20 +414,18 @@ def fc_weight_variable(in_dim, out_dim, output_shape):
             1.0 / math.sqrt(output_shape)))
 
 
-def conv_layer(prev_layer, shape, min_val, max_val, n_output, dropout):
+def conv_layer(prev_layer, shape, min_val, max_val, n_output):
     weights = tf.Variable(tf.random_uniform(shape, min_val, max_val))
     b = tf.Variable(tf.zeros([n_output]))
-    weights_dropout = tf.nn.dropout(weights, dropout)
     return tf.add(tf.nn.conv2d(
         prev_layer, weights, strides=[1, 2, 2, 1], padding='SAME'), b)
 
 
-def deconv_layer(prev_layer, shape, filter_shape, min_val, max_val, n_output, dropout):
+def deconv_layer(prev_layer, shape, filter_shape, min_val, max_val, n_output):
     weights = tf.Variable(tf.random_uniform(shape, min_val, max_val))
-    weights_dropout = tf.nn.dropout(weights, dropout)
     b = tf.Variable(tf.zeros([n_output]))
     conv_2d = tf.nn.conv2d_transpose(
-        value=prev_layer, filter=weights_dropout,
+        value=prev_layer, filter=weights,
         output_shape=tf.stack(filter_shape),
         strides=[1, 2, 2, 1], padding='SAME')
     return tf.add(conv_2d, b)
