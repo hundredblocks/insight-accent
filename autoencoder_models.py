@@ -252,10 +252,15 @@ def VAE(input_shape=[None, 784],
         print("filter shape")
         print(filter_shape)
         print(tf.stack(filter_shape))
-        output = tf.nn.relu(
-            deconv_layer(current_input, weights_shape, filter_shape,
-                         -1.0 / math.sqrt(n_output), 1.0 / math.sqrt(n_output), n_output))
 
+        deconv = deconv_layer(current_input, weights_shape, filter_shape,
+                              -1.0 / math.sqrt(n_output), 1.0 / math.sqrt(n_output), n_output)
+        if layer_i != len(shapes)-1:
+            output = tf.nn.relu(
+                deconv_layer(current_input, weights_shape, filter_shape,
+                             -1.0 / math.sqrt(n_output), 1.0 / math.sqrt(n_output), n_output))
+        else:
+            output = deconv
         current_input = output
         print(output.get_shape())
 

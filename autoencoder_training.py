@@ -239,9 +239,11 @@ def train_autoencoder(ae, sess, train_norm, validation_norm, test_norm, batch_si
 
         if epoch_i % 10 == 0 and len(validation_norm) > 0:
             print("Validation", sess.run(ae['cost'], feed_dict={ae['x']: validation_norm}))
+        if epoch_i % 50 == 0:
+            save_path = saver.save(sess, "./AE_%s.ckpt" % epoch_i)
     if len(test_norm) > 0:
         print("Test", sess.run(ae['cost'], feed_dict={ae['x']: test_norm}))
-    save_path = saver.save(sess, "./AE.ckpt")
+    save_path = saver.save(sess, "./AE_final.ckpt")
     return ae
 
 
@@ -403,6 +405,6 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 if __name__ == '__main__':
     # test_data()
     vanilla_autoencoder(n_filters=[1, 4, 4, 4], filter_sizes=[4, 4, 4, 4],
-                        z_dim=50, subsample=20, batch_size=4, n_epochs=300,
+                        z_dim=50, subsample=20, batch_size=4, n_epochs=600,
                         loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/f3_m4/cut_1000_step_100')
     # test(mnist_flag=True)
