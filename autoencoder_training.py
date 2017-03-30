@@ -328,9 +328,9 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
     sess = tf.Session()
     train_split, val_split, test_split = split_dataset(data_and_path_female, test_split, validation_split)
 
-    train_norm, data_var, data_mean = get_normalized(train_split)
-    val_norm, _, _ = get_normalized(val_split, data_var, data_mean)
-    test_norm, _, _ = get_normalized(test_split, data_var, data_mean)
+    train_norm, data_mean, data_var = get_normalized(train_split)
+    val_norm, _, _ = get_normalized(val_split, data_mean, data_var)
+    test_norm, _, _ = get_normalized(test_split, data_mean, data_var)
 
     print("Total %s. Training on %s, validating on %s, testing on %s" % (
         len(data_and_path_female), len(train_split), len(val_split), len(test_split)))
@@ -344,6 +344,7 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
     to_plot_train = np.random.permutation(train_split)[:min(len(train_split), 15)]
     to_plot_val = np.random.permutation(val_split)[:min(len(val_split), 15)]
     to_plot_test = np.random.permutation(test_split)[:min(len(test_split), 15)]
+
     output_examples(to_plot_train, ae, sess, fs, 'ae/train', data_mean, data_var)
 
     output_examples(to_plot_val, ae, sess, fs, 'ae/val', data_mean, data_var)
@@ -353,20 +354,18 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
     plt.show()
 
 
-def output_examples(data, model, sess, fs, folder, data_mean, data_var):
-    # source = [d[0] for d in data]
-    # test_xs = np.zeros([len(source), source[0].shape[0], source[0].shape[1], 1])
-    # for i, a in enumerate(source):
-    #     test_xs[i][:, :, 0] = a
-    # mean_img = np.mean(test_xs)
-    # test_xs_norm = np.array([img - mean_img for img in test_xs])
+def output_examples(data, model, sess, fs, folder, data_mean, data_std):
 
-    source_norm, _, _ = get_normalized(data, data_mean, data_var)
+    source_norm, _, _ = get_normalized(data, data_mean, data_std)
 
     recon = sess.run(model['y'], feed_dict={model['x']: source_norm})
     for i in range(len(data)):
-        output_filename = fft_to_audio('encoder_data/outputs/%s/a-%s_%s' % (folder, i, data[i][-1]),
-                                       recon[i, ..., 0].T, fs, entire_path=True)
+        data_i = recon[i, ..., 0].T
+        output_filename = fft_to_audio('encoder_data/outputs/%s/recon-%s_%s' % (folder, i, data[i][-1]),
+                                       data_i, fs, entire_path=True)
+        data_norm = data_i * data_std + data_mean
+        output_filename = fft_to_audio('encoder_data/outputs/%s/unnorm-%s_%s' % (folder, i, data[i][-1]),
+                                       data_norm, fs, entire_path=True)
 
 
 def plot_spectrograms(data, sess, ae, t_dim, f_dim):
@@ -405,6 +404,7 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 if __name__ == '__main__':
     # test_data()
     vanilla_autoencoder(n_filters=[1, 4, 4, 4], filter_sizes=[4, 4, 4, 4],
-                        z_dim=50, subsample=20, batch_size=4, n_epochs=600,
+                        #z_dim=50, subsample=20, batch_size=4, n_epochs=600,
+                        z_dim=50, subsample=10, batch_size=2, n_epochs=200,
                         loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/f3_m4/cut_1000_step_100')
     # test(mnist_flag=True)

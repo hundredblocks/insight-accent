@@ -132,39 +132,10 @@ def VAE(input_shape=[None, 784],
         n_filters=[1, 10, 10, 10],
         filter_sizes=[3, 3, 3, 3],
         z_dim=50, loss_function='l2'):
-    # %%
-    # Input placeholder
-    """Build a deep denoising autoencoder w/ tied weights.
 
-        Parameters
-        ----------
-        input_shape : list, optional
-            Description
-        n_filters : list, optional
-            Description
-        filter_sizes : list, optional
-            Description
-        z_dim: number of dimensions of latent space
-        loss_function: l2 or cross entropy
-
-        Returns
-        -------
-        x : Tensor
-            Input placeholder to the network
-        z : Tensor
-            Inner-most latent representation
-        y : Tensor
-            Output reconstruction of the input
-        cost : Tensor
-            Overall cost to use for training
-        """
-    # %%
-    # input to the network
     x = tf.placeholder(
         tf.float32, input_shape, name='x')
 
-    # %%
-    # ensure 2-d is converted to square tensor.
     if len(x.get_shape()) == 2:
         x_dim = np.sqrt(x.get_shape().as_list()[1])
         if x_dim != int(x_dim):
@@ -178,10 +149,7 @@ def VAE(input_shape=[None, 784],
         raise ValueError('Unsupported input dimensions')
     current_input = x_tensor
     print("current_input", current_input)
-    n_points = x_tensor.get_shape().as_list()[1] * x_tensor.get_shape().as_list()[2]
 
-    # %%
-    # Build the encoder
     encoder = []
     shapes = []
     outputs = []
@@ -239,14 +207,10 @@ def VAE(input_shape=[None, 784],
 
     outputs.reverse()
 
-    # %%
-    # Build the decoder
     for layer_i, shape in enumerate(shapes):
         n_output = w_dims[-(layer_i + 1)]
         n_input = current_input.get_shape().as_list()[3]
         weights_shape = [filter_sizes[-layer_i + 1], filter_sizes[-layer_i + 1], n_output, n_input]
-
-        # [batch,
 
         filter_shape = [tf.shape(x)[0], shape[1], shape[2], shape[3]]
         print("filter shape")
@@ -264,35 +228,29 @@ def VAE(input_shape=[None, 784],
         current_input = output
         print(output.get_shape())
 
-    # %%
-    # now have the reconstruction through the network
     y = current_input
     print(y.get_shape())
-    target = x_tensor
-    # target = tf.placeholder(tf.float32, input_shape, name='target')
-    # cost function measures pixel-wise difference
 
     if loss_function == 'l2':
         print('l2 loss function chosen')
-        rec_cost = l2_loss(y, target)
+        rec_cost = l2_loss(y, x_tensor)
     elif loss_function == 'l1':
         print('l1 loss function chosen')
-        rec_cost = l1_loss(y, target)
+        rec_cost = l1_loss(y, x_tensor)
     else:
         print('cross entropy loss function chosen')
-        rec_cost = cross_entropy(y, target)
+        rec_cost = cross_entropy(y, x_tensor)
     ampl_factor = 1
     vae_loss_kl = ampl_factor * kl_div(z_mean, z_sigma)
-    # vae_loss_kl = tf.reduce_mean(vae_loss_kl) / n_points
+
     print("vae")
     print(vae_loss_kl.get_shape())
     print("rec")
     print(rec_cost.get_shape())
-    # cost = tf.reduce_mean(vae_loss_kl)
     cost = tf.reduce_mean(rec_cost + vae_loss_kl)
 
     global_step = tf.Variable(0, trainable=False)
-    optimizer = tf.train.AdamOptimizer(0.01)
+    optimizer = tf.train.AdamOptimizer(0.001)
     trainable = tf.trainable_variables()
     grads_and_vars = optimizer.compute_gradients(cost, trainable)
     grads_and_vars = [g for g in grads_and_vars if g[0] is not None]
@@ -300,7 +258,6 @@ def VAE(input_shape=[None, 784],
 
     train_op = optimizer.apply_gradients(clipped, global_step=global_step, name="minimize_cost")
 
-    # %%
     return {'x': x, 'z': z, 'y': y, 'cost': cost, 'rec_cost': rec_cost, 'vae_loss_kl': vae_loss_kl,
             'z_mean': z_mean, 'z_sigma': z_sigma,
             'train_op': train_op}, shapes
