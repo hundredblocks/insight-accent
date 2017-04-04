@@ -131,10 +131,13 @@ def cross_autoencoder(input_shape=[None, 784],
 def vae(input_shape=[None, 784],
         n_filters=[1, 10, 10, 10],
         filter_sizes=[3, 3, 3, 3],
-        z_dim=50, loss_function='l2'):
+        z_dim=50, loss_function='l2', encode_with_latent=False):
     x = tf.placeholder(tf.float32, input_shape, name='x')
     dropout = tf.placeholder_with_default(1., shape=[], name="dropout")
     dropout_fc = tf.placeholder_with_default(1., shape=[], name="dropout")
+
+    if encode_with_latent:
+        class_vector = tf.placeholder(tf.float32, shape=[None, 2], name='class_vector')
 
     if len(x.get_shape()) == 2:
         x_dim = np.sqrt(x.get_shape().as_list()[1])
@@ -192,8 +195,12 @@ def vae(input_shape=[None, 784],
     z = sample_gaussian(z_mean, z_sigma)
     print("z")
     print(z.get_shape())
-
-    rec_pre_drop = fc_layer(z, z_dim, output_flatten.get_shape().as_list()[1], output_shape)
+    if encode_with_latent:
+        z_class = tf.concat([z, class_vector], axis=1)
+        # TODO generalize
+        rec_pre_drop = fc_layer(z_class, z_dim+2, output_flatten.get_shape().as_list()[1], output_shape)
+    else:
+        rec_pre_drop = fc_layer(z, z_dim, output_flatten.get_shape().as_list()[1], output_shape)
     rec = tf.nn.dropout(rec_pre_drop, dropout_fc)
     print("reconstruction")
     print(rec.get_shape())
@@ -224,6 +231,10 @@ def vae(input_shape=[None, 784],
 
         deconv = deconv_layer(current_input, weights_shape, filter_shape,
                               -1.0 / math.sqrt(n_output), 1.0 / math.sqrt(n_output), n_output)
+
+        # Residual
+        # deconv = outputs[layer_i] + decon
+
         if layer_i != len(shapes) - 1:
             output_pre_drop = tf.nn.relu(deconv)
         else:
@@ -261,10 +272,12 @@ def vae(input_shape=[None, 784],
     clipped = [(tf.clip_by_value(grad, -1., 1.), tvar) for grad, tvar in grads_and_vars]
 
     train_op = optimizer.apply_gradients(clipped, global_step=global_step, name="minimize_cost")
-
-    return {'x': x, 'z': z, 'y': y, 'cost': cost, 'rec_cost': rec_cost, 'vae_loss_kl': vae_loss_kl,
-            'z_mean': z_mean, 'z_sigma': z_sigma,
-            'train_op': train_op, 'dropout': dropout, 'dropout_fc': dropout_fc}, shapes
+    param_dict = {'x': x, 'z': z, 'y': y, 'cost': cost, 'rec_cost': rec_cost, 'vae_loss_kl': vae_loss_kl,
+                  'z_mean': z_mean, 'z_sigma': z_sigma,
+                  'train_op': train_op, 'dropout': dropout, 'dropout_fc': dropout_fc}
+    if encode_with_latent:
+        param_dict['class'] = class_vector
+    return param_dict, shapes
 
 
 def VAE_MNIST(input_shape=[None, 784],

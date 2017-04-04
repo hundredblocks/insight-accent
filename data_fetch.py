@@ -208,16 +208,22 @@ def cut_all(base_dir):
 
 
 def cut_daps(path, start_pad=0, end_pad=None, ms_cut_size=3000, ms_step_size=1000, out='cut'):
+    to_cut = []
     for root, dirs, files in os.walk(path):
+        print(root, dirs, files)
         for filename in files:
-            if not filename.endswith('wav'):
+            is_wav = filename.endswith('wav')
+            if not is_wav:
                 continue
             filepath = os.path.join(root, filename)
             print(filepath)
             infile = wave.open(filepath)
             out_path = os.path.join(root, out)
-            utils.multislice(infile, out_path, filename, start_pad=start_pad, end_pad=end_pad,
-                             ms_cut_size=ms_cut_size, ms_step_size=ms_step_size)
+            to_cut.append([infile, out_path, filename])
+    for infile, out_path, filename in to_cut:
+        print([infile, out_path, filename])
+        utils.multislice(infile, out_path, filename, start_pad=start_pad, end_pad=end_pad,
+                         ms_cut_size=ms_cut_size, ms_step_size=ms_step_size)
 
 
 # used_genders is an array
@@ -265,14 +271,14 @@ def get_all_audio_in_folder(path, subsample=-1):
 
 
 # Data format: [[input, paths],...]
-def get_all_autoencoder_audio_in_folder(path, subsample=-1, random=False):
+def get_all_autoencoder_audio_in_folder(path, subsample=-1, class_label=None, random=False):
     source_list = []
     path_list = []
-    onlyfiles = [f for f in listdir(path) if
-                 isfile(join(path, f)) and not f.startswith('.DS')]
-    #onlyfiles = sorted(onlyfiles)
-    #if random is True or subsample == -1:
-    onlyfiles = np.random.permutation(onlyfiles)
+    if class_label is None:
+        class_label = [1, 0]
+    onlyfiles = [f for f in listdir(path) if isfile(join(path, f)) and not f.startswith('.DS')]
+    if random is True:
+        onlyfiles = np.random.permutation(onlyfiles)
     for i, f in enumerate(onlyfiles):
         if subsample != -1 and i > subsample:
             continue
@@ -290,7 +296,7 @@ def get_all_autoencoder_audio_in_folder(path, subsample=-1, random=False):
     for i, x in enumerate(source_list):
         formatted_source[i] = x
 
-    data_and_label = [np.array([formatted_source[i, :, :], path_list[i]]) for i in
+    data_and_label = [np.array([formatted_source[i, :, :], class_label, path_list[i]]) for i in
                       range(len(source_list))]
     return data_and_label, fs
 

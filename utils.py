@@ -61,10 +61,12 @@ def read_audio_spectrum(x, fs, n_fft=N_FFT, reduce_factor=1):
     return S
 
 
-def plot_spectrum(x, fs):
+def plot_spectrum(x, fs, cut=620):
     spec = read_audio_spectrum(x, fs)
+    spec_cut = spec[:cut, :]
+    spec_inv = np.array([spec_cut[-(i + 1)] for i, a in enumerate(spec_cut)])
     plt.figure()
-    plt.imshow(spec)
+    plt.imshow(spec_inv)
     plt.show()
 
 
