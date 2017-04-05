@@ -280,7 +280,7 @@ def get_all_autoencoder_audio_in_folder(path, subsample=-1, class_label=None, ra
     if random is True:
         onlyfiles = np.random.permutation(onlyfiles)
     for i, f in enumerate(onlyfiles):
-        if subsample != -1 and i > subsample:
+        if subsample != -1 and i >= subsample:
             continue
         file = os.path.join(path, f)
         x, fs = librosa.load(file)

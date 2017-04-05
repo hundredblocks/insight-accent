@@ -181,12 +181,10 @@ def get_normalized_x_y(validation):
     validation_sources = [a[0] for a in validation_set]
     validation_targets = [a[1] for a in validation_set]
 
-    validation_xs = np.zeros(
-        [len(validation_sources), validation_sources[0].shape[0], validation_sources[0].shape[1], 1])
+    validation_xs = np.zeros([len(validation_sources), validation_sources[0].shape[0], validation_sources[0].shape[1], 1])
     for j, a in enumerate(validation_sources):
         validation_xs[j][:, :, 0] = a
-    validation_ys = np.zeros(
-        [len(validation_targets), validation_targets[0].shape[0], validation_targets[0].shape[1], 1])
+    validation_ys = np.zeros([len(validation_targets), validation_targets[0].shape[0], validation_targets[0].shape[1], 1])
     for j, a in enumerate(validation_targets):
         validation_ys[j][:, :, 0] = a
     validation_xs_norm = np.array([img - validation_mean_x for img in validation_xs])
@@ -210,8 +208,7 @@ def get_normalized(data, data_mean=None, data_std=None):
     tensor = np.zeros([len(np_data_only), np_data_only[0].shape[0], np_data_only[0].shape[1], 1])
     for j, a in enumerate(np_normalized):
         tensor[j][:, :, 0] = a
-    tensor_with_label = [np.array([tensor[i, :, :], data[i][1], data[i][-1]]) for i in
-                         range(len(data))]
+    tensor_with_label = [np.array([tensor[i, :, :], data[i][1], data[i][-1]]) for i in range(len(data))]
     # validation_normalized = np.array([img - data_mean for img in validation_xs])
     return tensor_with_label, data_mean, data_std
 
@@ -330,7 +327,7 @@ def split_dataset(dataset, test_split=.1, validation_split=.1, offset=None):
            offset_arr[val_end:val_end + test_size], offset
 
 
-def vanilla_autoencoder(n_filters=None, filter_sizes=None,
+def vanilla_autoencoder(n_filters=None, filter_sizes=None, learning_rate=0.001,
                         z_dim=50, subsample=-1, batch_size=10,
                         n_epochs=100, loss_function='l2', test_split_ratio=.1,
                         val_split_ratio=.1, autoencode=False,
@@ -350,7 +347,7 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
     ae, shapes = vae(input_shape=[None, t_dim, f_dim, 1],
                      n_filters=n_filters,
                      filter_sizes=filter_sizes, z_dim=z_dim,
-                     loss_function=loss_function, encode_with_latent=encode_with_latent)
+                     loss_function=loss_function, encode_with_latent=encode_with_latent, learning_rate=learning_rate)
 
     sess = tf.Session()
     train_split, val_split, test_split, offset = split_dataset(data_and_path_female, test_split_ratio,
@@ -392,6 +389,8 @@ def vanilla_autoencoder(n_filters=None, filter_sizes=None,
     output_examples(to_plot_test, ae, sess, fs, 'ae/test',
                     data_mean, data_var, encode_with_latent=encode_with_latent, class_label=[1, 0])
     output_examples(data_and_path_male, ae, sess, fs, 'ae/male',
+                    data_mean, data_var, encode_with_latent=encode_with_latent, class_label=[1, 0])
+    output_examples(data_and_path_male, ae, sess, fs, 'ae/male_morph',
                     data_mean, data_var, encode_with_latent=encode_with_latent, class_label=[1, 0])
 
     plt.show()
@@ -450,8 +449,8 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
 
 # %%
 if __name__ == '__main__':
-    vanilla_autoencoder(n_filters=[1, 4, 6, 8], filter_sizes=[4, 4, 4, 4],
+    vanilla_autoencoder(n_filters=[1, 4, 6, 8], filter_sizes=[3, 3, 3, 3], learning_rate=0.001,
                         # z_dim=50, subsample=20, batch_size=4, n_epochs=600,
-                        z_dim=500, subsample=10, batch_size=2, n_epochs=800,
+                        z_dim=50, subsample=10, batch_size=2, n_epochs=1000,
                         loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/f3_m4/cut_1000_step_100',
-                        encode_with_latent=False)
+                        encode_with_latent=True)

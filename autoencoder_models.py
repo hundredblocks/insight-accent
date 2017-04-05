@@ -131,7 +131,7 @@ def cross_autoencoder(input_shape=[None, 784],
 def vae(input_shape=[None, 784],
         n_filters=[1, 10, 10, 10],
         filter_sizes=[3, 3, 3, 3],
-        z_dim=50, loss_function='l2', encode_with_latent=False):
+        z_dim=50, loss_function='l2', encode_with_latent=False, learning_rate=0.001):
     x = tf.placeholder(tf.float32, input_shape, name='x')
     dropout = tf.placeholder_with_default(1., shape=[], name="dropout")
     dropout_fc = tf.placeholder_with_default(1., shape=[], name="dropout")
@@ -196,7 +196,9 @@ def vae(input_shape=[None, 784],
     print("z")
     print(z.get_shape())
     if encode_with_latent:
-        z_class = tf.concat([z, class_vector], axis=1)
+        z_class = tf.concat([z, class_vector],1)
+        print("z_encode")
+        print(z_class.get_shape())
         # TODO generalize
         rec_pre_drop = fc_layer(z_class, z_dim+2, output_flatten.get_shape().as_list()[1], output_shape)
     else:
@@ -265,7 +267,7 @@ def vae(input_shape=[None, 784],
     cost = tf.reduce_mean(rec_cost + vae_loss_kl)
 
     global_step = tf.Variable(0, trainable=False)
-    optimizer = tf.train.AdamOptimizer(0.001)
+    optimizer = tf.train.AdamOptimizer(learning_rate)
     trainable = tf.trainable_variables()
     grads_and_vars = optimizer.compute_gradients(cost, trainable)
     grads_and_vars = [g for g in grads_and_vars if g[0] is not None]
