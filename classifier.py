@@ -1,7 +1,6 @@
 # architecture from https://github.com/awjuliani/sound-cnn
 
 import tensorflow as tf
-import numpy as np
 
 
 class SoundCNN():

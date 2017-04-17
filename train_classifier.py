@@ -1,8 +1,9 @@
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
+
 # import matplotlib.pyplot as plt
 from data_fetch import preprocess_and_load
-from model import SoundCNN
+from models.classifier import SoundCNN
 
 
 def train_conv_net(max_iter, batch_size, num_classes, learning_rate, trainX, trainYa, valX, valY, testX, testY):

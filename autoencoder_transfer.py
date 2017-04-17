@@ -1,175 +1,15 @@
-import matplotlib
 import os
+
+import matplotlib
 import numpy as np
 import tensorflow as tf
 
-from autoencoder_models import vae, VAE_MNIST, cross_autoencoder
+from models.autoencoder_models import vae
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from data_fetch import get_male_female_pairs, get_all_autoencoder_audio_in_folder
+from data_fetch import get_all_autoencoder_audio_in_folder
 from utils import fft_to_audio
-
-
-def test(mnist_flag=True):
-    """Summary
-
-    Returns
-    -------
-    name : TYPE
-        Description
-    """
-    # %%
-    import tensorflow as tf
-    import tensorflow.examples.tutorials.mnist.input_data as input_data
-    import matplotlib.pyplot as plt
-
-    # %%
-    # Fit all training data
-    t_i = 0
-    batch_size = 100
-    n_epochs = 10
-    n_examples = 20
-
-    # %%
-    # load MNIST as before
-    if mnist_flag:
-        mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
-        test_xs, _ = mnist.test.next_batch(n_examples)
-        xs, ys = mnist.test.images, mnist.test.labels
-        num_examples = mnist.train.num_examples
-        hidden_size = 2
-        ae = VAE_MNIST(n_hidden=hidden_size)
-
-    else:
-        data_and_path, fs = get_male_female_pairs('encoder_data/DAPS/small_test/cut', product=False)
-        only_female = [f[1] for f in data_and_path]
-        train, val, test_xs = split_dataset(only_female, .1, .1)
-        tdim = only_female[0].shape[0]
-        fdim = only_female[0].shape[1]
-        num_examples = len(train)
-        ae = vae(input_shape=[None, tdim * fdim])
-
-    # hidden_size = 2
-    # ae = VAE(n_hidden=hidden_size)
-
-    # %%
-    learning_rate = 0.001
-    optimizer = tf.train.AdamOptimizer(learning_rate).minimize(ae['cost'])
-
-    # %%
-    # We create a session to use the graph
-    sess = tf.Session()
-    sess.run(tf.global_variables_initializer())
-
-    fig_manifold, ax_manifold = plt.subplots(1, 1)
-    fig_reconstruction, axs_reconstruction = plt.subplots(2, n_examples, figsize=(10, 2))
-    fig_image_manifold, ax_image_manifold = plt.subplots(1, 1)
-    for epoch_i in range(n_epochs):
-        print('--- Epoch', epoch_i)
-        train_cost = 0
-        print("Number train examples %s" % num_examples)
-        print("Num batches %s" % (num_examples // batch_size))
-        if not mnist_flag:
-            perms = np.random.permutation(train)
-        for batch_i in range(num_examples // batch_size):
-
-            if mnist_flag:
-                batch_xs, _ = mnist.train.next_batch(batch_size)
-            else:
-                batch_xs = perms[batch_i * batch_size:(batch_i + 1) * batch_size, :]
-
-            curr_cost, kl, dist, _ = sess.run([ae['cost'], ae['kl_div'], ae['log_px_given_z'], optimizer],
-                                              feed_dict={ae['x']: batch_xs})
-            train_cost += curr_cost
-            print(curr_cost, np.mean(kl), np.sum(kl), np.mean(dist), np.sum(dist))
-        # %%
-        # Plot example reconstructions from walking the latent layer
-        imgs = []
-        for img_i in np.linspace(-3, 3, n_examples):
-            for img_j in np.linspace(-3, 3, n_examples):
-                z = np.array([[img_i, img_j]], dtype=np.float32)
-                recon = sess.run(ae['y'], feed_dict={ae['z']: z})
-                imgs.append(np.reshape(recon, (1, 28, 28, 1)))
-        imgs_cat = np.concatenate(imgs)
-        ax_manifold.imshow(montage_batch(imgs_cat))
-        fig_manifold.savefig('images/manifold_%08d.png' % t_i)
-
-        # %%
-        # Plot example reconstructions
-        recon = sess.run(ae['y'], feed_dict={ae['x']: test_xs})
-        print("reconstruction obtained")
-        for example_i in range(n_examples):
-            axs_reconstruction[0][example_i].imshow(
-                np.reshape(test_xs[example_i, :], (28, 28)),
-                cmap='gray')
-            axs_reconstruction[1][example_i].imshow(
-                np.reshape(
-                    np.reshape(recon[example_i, ...], (784,)),
-                    (28, 28)),
-                cmap='gray')
-            axs_reconstruction[0][example_i].axis('off')
-            axs_reconstruction[1][example_i].axis('off')
-        fig_reconstruction.savefig('images/reconstruction_%08d.png' % t_i)
-
-        # %%
-        # Plot manifold of latent layer
-        zs = sess.run(ae['z'], feed_dict={ae['x']: xs})
-        print("manifold obtained")
-        ax_image_manifold.clear()
-        ax_image_manifold.scatter(zs[:, 0], zs[:, 1],
-                                  c=np.argmax(ys, 1), alpha=0.2)
-        ax_image_manifold.set_xlim([-6, 6])
-        ax_image_manifold.set_ylim([-6, 6])
-        ax_image_manifold.axis('off')
-        fig_image_manifold.savefig('images/image_manifold_%08d.png' % t_i)
-
-        t_i += 1
-
-        print('Train cost:', train_cost /
-              (num_examples // batch_size))
-
-        valid_cost = 0
-        validation_examples = mnist.validation.num_examples
-
-        for batch_i in range(validation_examples // batch_size):
-            if mnist_flag:
-                batch_xs, _ = mnist.validation.next_batch(batch_size)
-            else:
-                batch_xs, _ = get_normalized_x_y(val)
-            valid_cost += sess.run([ae['cost']],
-                                   feed_dict={ae['x']: batch_xs})[0]
-        print('Validation cost:', valid_cost /
-              (validation_examples // batch_size))
-
-
-def montage_batch(images):
-    """Draws all filters (n_input * n_output filters) as a
-    montage image separated by 1 pixel borders.
-    Parameters
-    ----------
-    batch : numpy.ndarray
-        Input array to create montage of.
-    Returns
-    -------
-    m : numpy.ndarray
-        Montage image.
-    """
-    img_h = images.shape[1]
-    img_w = images.shape[2]
-    n_plots = int(np.ceil(np.sqrt(images.shape[0])))
-    m = np.ones(
-        (images.shape[1] * n_plots + n_plots + 1,
-         images.shape[2] * n_plots + n_plots + 1, 3)) * 0.5
-
-    for i in range(n_plots):
-        for j in range(n_plots):
-            this_filter = i * n_plots + j
-            if this_filter < images.shape[0]:
-                this_img = images[this_filter, ...]
-                m[1 + i + i * img_h:1 + i + (i + 1) * img_h,
-                1 + j + j * img_w:1 + j + (j + 1) * img_w, :] = this_img
-    return m
 
 
 def get_normalized_x_y(validation):
@@ -447,10 +287,8 @@ def plot_spectrograms(data, sess, ae, t_dim, f_dim):
         print(recon[example_i, ..., 0].T.shape)
 
 
-# %%
 if __name__ == '__main__':
     vanilla_autoencoder(n_filters=[1, 4, 6, 8], filter_sizes=[3, 3, 3, 3], learning_rate=0.001,
-                        # z_dim=50, subsample=20, batch_size=4, n_epochs=600,
                         z_dim=50, subsample=10, batch_size=2, n_epochs=1000,
                         loss_function='l2', autoencode=True, data_path='encoder_data/DAPS/f3_m4/cut_1000_step_100',
                         encode_with_latent=True)

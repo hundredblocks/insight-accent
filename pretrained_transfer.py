@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from IPython.display import Audio, display
 
-from model import SoundCNN, conv2d, max_pool_2x2
+from models.classifier import SoundCNN, conv2d
 from utils import read_audio_spectrum, fft_to_audio, plot_all
 
 N_FFT = 2048
@@ -14,10 +14,8 @@ FILTER_WIDTH = 11
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 
-def preprocess_samples(content, style, num_classes=2, n_fft=N_FFT, reduce_factor=1):
+def preprocess_samples(content, style, n_fft=N_FFT, reduce_factor=1):
     content_filename = "inputs/" + content
-    content_no_extention = content.split(".")[0]
-    style_no_extention = style.split(".")[0]
     style_filename = "inputs/" + style
 
     x_c, fs_c = librosa.load(content_filename)
@@ -47,27 +45,17 @@ def style_transfer(num_classes, n_samples, n_channels, content_tensor, style_ten
         saver.restore(session, 'trained_model/model.ckpt')
         x_np = np.random.randn(1, 1, n_samples, n_channels).astype(np.float32) * 1e-3
         x = tf.Variable(x_np, name="x")
-        # content_features = model.h_conv1.eval(feed_dict={model.x: content_tensor,
-        #                                                  model.keep_prob: 1.0,
-        #                                                  model.is_train: False})
         content_features = model.h_conv1.eval(feed_dict={model.x: content_tensor,
                                                          model.keep_prob: 1.0,
                                                          model.is_train: False})
-        print(content_features.shape)
         style_features = model.h_conv1.eval(feed_dict={model.x: style_tensor,
                                                        model.keep_prob: 1.0,
                                                        model.is_train: False})
-        print(style_features.shape)
-        # logging.log(logging.INFO, "feature difference")
-        # logging.log(logging.INFO, style_features.shape)
-        # logging.log(logging.INFO, content_features - style_features)
         n_filters = style_features.shape[-1]
         features = np.reshape(style_features, (-1, n_filters))
-        # features = np.reshape(style_features, (-1, n_filters))
         style_gram = np.matmul(features.T, features) / n_samples
         logging.log(logging.INFO, "Style gram")
         logging.log(logging.INFO, style_gram)
-        # ======
 
         conv1 = conv2d(x, model.W_conv1)
         batch_norm1 = tf.contrib.layers.batch_norm(conv1,
@@ -76,29 +64,8 @@ def style_transfer(num_classes, n_samples, n_channels, content_tensor, style_ten
                                                    )
         h_conv1 = tf.nn.relu(batch_norm1)
 
-        # h_pool1 = max_pool_2x2(h_conv1)
-        #
-        # conv2 = conv2d(h_pool1, model.W_conv2)
-        # batch_norm2 = tf.contrib.layers.batch_norm(conv2,
-        #                                            center=True, scale=True,
-        #                                            is_training=False)
-        # h_conv2 = tf.nn.relu(batch_norm2)
-        #
-        # h_pool2 = max_pool_2x2(h_conv2)
-        #
-        # h_pool2_flat = tf.reshape(h_pool2, [-1, 3 * 11 * 64])
-        #
-        # conv3 = tf.matmul(h_pool2_flat, model.W_fc1)
-        # batch_norm3 = tf.contrib.layers.batch_norm(conv3,
-        #                                            center=True, scale=True,
-        #                                            is_training=False)
-        #
-        # h_fc1 = tf.nn.relu(batch_norm3)
-
         end = h_conv1
-        # end = h_fc1
         style = h_conv1
-        # =======
 
         content_loss = alpha * 2 * tf.nn.l2_loss(end - content_features)
 
@@ -109,13 +76,11 @@ def style_transfer(num_classes, n_samples, n_channels, content_tensor, style_ten
         style_loss = 2 * tf.nn.l2_loss(gram - style_gram)
 
         loss = content_loss + style_loss
-        # loss = content_loss
 
         opt = tf.contrib.opt.ScipyOptimizerInterface(
             loss, method='L-BFGS-B', options={'maxiter': 300}, var_list=[x])
 
         tf.global_variables_initializer().run()
-        # initial_weights = model.W_conv1.eval()
 
         initial_gram = gram.eval()
         initial_content = end.eval()
@@ -152,11 +117,10 @@ def do_style_transfer(content, style, num_classes=2, n_fft=N_FFT, reduce_factor=
     content_tensor, style_tensor, n_samples, n_channels, sampling_frequency, a_content, a_style = preprocess_samples(
         content,
         style,
-        num_classes=num_classes,
         n_fft=n_fft,
         reduce_factor=reduce_factor)
     result = style_transfer(num_classes, n_samples, n_channels, content_tensor, style_tensor, a_content, a_style)
-    out_name = 'testo.wav'
+    out_name = 'styled.wav'
     output_filename = fft_to_audio(out_name, result, sampling_frequency)
     display(Audio(output_filename))
 
