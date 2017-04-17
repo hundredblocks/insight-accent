@@ -116,7 +116,7 @@ def vae(input_shape=[None, 784],
     else:
         raise ValueError('Unsupported input dimensions')
     current_input = x_tensor
-    logging.info("input tensor", current_input)
+    logging.info("input tensor %s" % current_input)
 
     encoder = []
     shapes = []
@@ -133,34 +133,34 @@ def vae(input_shape=[None, 784],
         conv = tf.contrib.layers.batch_norm(conv_pre_norm)
         output_pre_drop = tf.nn.relu(conv)
         output = tf.nn.dropout(output_pre_drop, dropout)
-        logging.info("layer shape", output.get_shape())
+        logging.info("layer shape %s" % output.get_shape())
 
         current_input = output
 
     _, w, h, c = output.get_shape().as_list()
     output_flatten = tf.reshape(output, [-1, w * h * c])
     output_shape = output_flatten.get_shape().as_list()[-1]
-    logging.info("flattened shape", output_flatten.get_shape())
+    logging.info("flattened shape %s"% output_flatten.get_shape())
 
     z_mean_pre_drop = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
     z_mean = tf.nn.dropout(z_mean_pre_drop, dropout_fc)
 
     z_sigma_pre_drop = fc_layer(output_flatten, output_flatten.get_shape().as_list()[1], z_dim, output_shape)
     z_sigma = tf.nn.dropout(z_sigma_pre_drop, dropout_fc)
-    logging.info("z_mean", z_mean.get_shape())
+    logging.info("z_mean %s" % z_mean.get_shape())
 
     z = sample_gaussian(z_mean, z_sigma)
-    logging.info("z", z.get_shape())
+    logging.info("z %s" % z.get_shape())
 
     if encode_with_latent:
         z_class = tf.concat([z, class_vector], 1)
-        logging.info("encoded class in vector", z_class.get_shape())
+        logging.info("encoded class in vector %s" % z_class.get_shape())
         # TODO generalize
         rec_pre_drop = fc_layer(z_class, z_dim + 2, output_flatten.get_shape().as_list()[1], output_shape)
     else:
         rec_pre_drop = fc_layer(z, z_dim, output_flatten.get_shape().as_list()[1], output_shape)
     rec = tf.nn.dropout(rec_pre_drop, dropout_fc)
-    logging.info("decoder input flat shape", rec.get_shape())
+    logging.info("decoder input flat shape %s" % rec.get_shape())
 
     batch = tf.shape(output)[0]
     target = [batch]
@@ -168,7 +168,7 @@ def vae(input_shape=[None, 784],
 
     current_input = tf.reshape(rec, target)
 
-    logging.info("input to decoder", current_input.get_shape())
+    logging.info("input to decoder %s" % current_input.get_shape())
 
     encoder.reverse()
     shapes.reverse()
@@ -181,7 +181,7 @@ def vae(input_shape=[None, 784],
         weights_shape = [filter_sizes[-layer_i + 1], filter_sizes[-layer_i + 1], n_output, n_input]
 
         filter_shape = [tf.shape(x)[0], shape[1], shape[2], shape[3]]
-        logging.info("filter shape", filter_shape)
+        logging.info("filter shape %s" % filter_shape)
 
         deconv = deconv_layer(current_input, weights_shape, filter_shape,
                               -1.0 / math.sqrt(n_output), 1.0 / math.sqrt(n_output), n_output)
@@ -209,8 +209,8 @@ def vae(input_shape=[None, 784],
     ampl_factor = 1
     vae_loss_kl = ampl_factor * kl_div(z_mean, z_sigma)
 
-    logging.info("vae loss", vae_loss_kl.get_shape())
-    logging.info("rec loss", rec_cost.get_shape())
+    logging.info("vae loss %s" % vae_loss_kl.get_shape())
+    logging.info("rec loss %s" % rec_cost.get_shape())
     cost = tf.reduce_mean(rec_cost + vae_loss_kl)
 
     global_step = tf.Variable(0, trainable=False)
